@@ -7,6 +7,14 @@ import org.quranscan.reader.audio.*
 
 /** Synthetic fixtures only: these tests make no Quran/OCR accuracy claims. */
 class CoreSafetyTest {
+    @Test fun cropDragClampsEdgesSupportsReverseAndRejectsTinyOrNonFiniteAreas() {
+        assertEquals(CropBounds(0, 0, 100, 80), CropBounds.fromDrag(100, 80, 110f, 90f, -10f, -5f))
+        assertEquals(CropBounds(10, 20, 41, 61), CropBounds.fromDrag(100, 80, 40.2f, 60.1f, 10.5f, 20.8f))
+        assertNull(CropBounds.fromDrag(100, 80, 0f, 0f, 15f, 40f))
+        assertNull(CropBounds.fromDrag(100, 80, Float.NaN, 0f, 40f, 40f))
+        assertNull(CropBounds.fromDrag(100, 80, 0f, 0f, Float.POSITIVE_INFINITY, 40f))
+    }
+
     @Test fun adjacentReferencesCrossSurahsAndStopAtQuranBoundaries() {
         assertNull(VerseNavigation.adjacent(VerseId(1, 1), -1))
         assertNull(VerseNavigation.adjacent(VerseId(114, 6), 1))

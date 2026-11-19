@@ -35,3 +35,7 @@ Deferred until separate Android package/device-test authorization:
 - Reticle remains a visual guide for full-frame OCR; selectable crop, blur calibration and representative real-print measurements remain TODO.
 
 Compilation and lint cannot establish these camera runtime outcomes.
+
+## Gallery crop acceptance
+
+Source provides a fit-center drag selection and full-image fallback before OCR. Device QA must verify portrait/landscape images with EXIF rotations/reflections, dragging in all directions and beyond edges, tiny selections, Cancel/Back/navigation while decoding, large font, keyboard/insets and screen-reader full-image fallback. Pure crop math tests do not verify Android touch rendering or improve measured OCR accuracy by themselves.

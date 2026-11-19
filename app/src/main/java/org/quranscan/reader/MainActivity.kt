@@ -170,7 +170,7 @@ class MainActivity : Activity() {
             val bitmap = decodePreview(uri)
             runOnUiThread {
                 if (token != scanToken || isFinishing || isDestroyed) { bitmap?.recycle(); return@runOnUiThread }
-                if (bitmap == null) { message("Unable to decode image"); home() } else scan(bitmap)
+                if (bitmap == null) { message("Unable to decode image"); home() } else previewGalleryCrop(bitmap)
             }
         }
     }
@@ -201,6 +201,24 @@ class MainActivity : Activity() {
         if (matrix.isIdentity) decoded else Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
             .also { if (it !== decoded) decoded.recycle() }
         } catch (_: Exception) { null }
+    }
+
+    private fun previewGalleryCrop(bitmap: Bitmap) {
+        screen("Select Quran text", scrollable = false)
+        label("Drag a rectangle around the text, then scan the selection. Full image scanning is also available.", 15)
+        val crop = GalleryCropView(this, bitmap)
+        root.addView(crop, LinearLayout.LayoutParams(-1, 0, 1f))
+        action("Scan selected area") {
+            val selected = runCatching { crop.croppedBitmap() }.getOrNull()
+            if (selected == null) message("Unable to crop image. Try scanning the full image.")
+            else {
+                root.removeView(crop)
+                if (selected !== bitmap) bitmap.recycle()
+                scan(selected)
+            }
+        }
+        action("Scan full image") { root.removeView(crop); scan(bitmap) }
+        action("Cancel") { root.removeView(crop); bitmap.recycle(); home() }
     }
 
     private fun scan(bitmap: Bitmap) {

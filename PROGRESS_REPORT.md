@@ -105,3 +105,9 @@ Local source policy, complete corpus provenance and five OCR metric tests passed
 Camera source v13 backup: https://drive.google.com/file/d/19Rada_0M-fAmKKJRlw--F9sIP-rDKzoe/view ; report https://drive.google.com/file/d/1OVIpuSvVLggGecCTQl4KWPQBXZuTP69P/view . ZIP SHA-256 `2a0951938409a91c81c60feaa5e6fb89417cee5c08be7e1d14d090e2fba30368`. This earlier ZIP contains c1106a0; the final source checkpoint includes the lifecycle dispatch correction.
 
 Next native UI changes add Help and Exit navigation, prominent Live Quran Scan / Upload Quran Picture actions, auto-scan preference in Settings, offline storage/privacy guidance and system bar/cutout/keyboard insets for native screens and the preview. Navigating between native screens invalidates pending gallery callbacks. Source policy/diff checks pass locally; Android CI for this follow-up is required. Visual/accessibility/keyboard tests still require authorized device QA. No new recordings, timings or OCR truth data added.
+
+### Native UI verified; optional gallery crop
+
+UI commit `5ea42507430f5f5b773fa319b825035c6f87fb70`, Actions https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44482128467 completed successfully: 8 JVM tests, no failed/skipped tests, lint 0 errors / 39 warnings, Python checks and no-APK gate passed.
+
+Added a bounded decoded-image crop preview before gallery OCR: drag in the fitted image, clamp/reverse bounds safely, scan selection or full image, or cancel. Crop math has synthetic JVM coverage for reversed/out-of-range drags, fractional edges, tiny and non-finite input. Text bytes are never interpreted or changed by crop math. Full-image fallback remains available for accessibility. Gesture/EXIF/layout rendering and OCR effects still need device and reviewed real-image testing. Camera reticle remains a guide. See docs/DEVELOPMENT_HANDOFF_2026-11-19.md for explicit implementation TODOs as well as external blockers.
