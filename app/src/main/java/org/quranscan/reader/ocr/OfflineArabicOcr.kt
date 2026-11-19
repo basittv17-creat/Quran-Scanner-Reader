@@ -2,8 +2,10 @@ package org.quranscan.reader.ocr
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.SystemClock
 import com.googlecode.tesseract.android.TessBaseAPI
 import org.quranscan.reader.core.ImagePreprocessor
+import org.quranscan.reader.core.ScanImageQuality
 import java.io.File
 import java.security.MessageDigest
 
@@ -15,9 +17,19 @@ import java.security.MessageDigest
  */
 class OfflineArabicOcr(private val context: Context) {
     enum class Profile { AUTO, INDO_PAK, MADANI }
-    data class Scan(val rawUnverifiedText: String, val profile: Profile, val variantsChecked: Int)
+    data class Scan(
+        val rawUnverifiedText: String,
+        val profile: Profile,
+        val variantsChecked: Int,
+        val elapsedMs: Long,
+        val quality: ScanImageQuality?
+    )
 
     fun read(bitmap: Bitmap, profile: Profile): Scan {
+        val startedAt = SystemClock.elapsedRealtime()
+        val quality = if (bitmap.width > 1 && bitmap.height > 1) {
+            ScanImageQuality.measure(bitmap.width, bitmap.height, bitmap::getPixel)
+        } else null
         val dataRoot = prepareModel()
         val engine = TessBaseAPI()
         try {
@@ -54,7 +66,10 @@ class OfflineArabicOcr(private val context: Context) {
                         if (confidence >= 83 && arabicCount >= 30) break@recognition
                     }
                 }
-                return Scan(bestText.take(10000), profile, count)
+                return Scan(
+                    bestText.take(10000), profile, count,
+                    SystemClock.elapsedRealtime() - startedAt, quality
+                )
             } finally {
                 if (prepared !== bitmap && !prepared.isRecycled) prepared.recycle()
             }

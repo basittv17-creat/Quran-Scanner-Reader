@@ -33,3 +33,18 @@ The report binds the input export SHA. Metadata is supplied by the operator and
 cannot prove review, licensing, image digest correctness or representative coverage.
 The checked-in metric tests use synthetic strings only. No real-page benchmark
 has been completed, and no Quran OCR accuracy claim is established.
+
+## Capture guidance diagnostics
+
+The live and gallery screens report elapsed OCR time in milliseconds, measured from
+image quality sampling through Tesseract inference. This includes model preparation
+and excludes image decoding, verse matching, and UI rendering. Record cold and
+warm runs separately when comparing latency.
+
+Guidance uses mean luma and the percentage of sampled horizontal and vertical
+pixel pairs with a luma difference of at least 22 out of 255. The initial
+thresholds are mean luma below 65 and strong edges below 0.6%. Low detail can
+come from blur, a blank area, or low-contrast print. These are advisory signals
+for trying another capture. They do not suppress OCR or establish Quran
+recognition accuracy. Calibrate each signal with reviewed real pages and
+representative devices before relying on it in accuracy comparisons.

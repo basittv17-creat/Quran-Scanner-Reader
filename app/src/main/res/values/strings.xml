@@ -1,23 +1,25 @@
 <resources>
-    <string name="confirm_verse">میں نے مکمل عربی متن اور سورت/آیت کا حوالہ اپنے قرآن سے ملا لیا ہے۔</string>
-    <string name="confirm_before_play">تلاوت سے پہلے مکمل آیت اور حوالہ ملا کر تصدیق کریں۔</string>
-    <string name="loading_local_verse">مقامی آیت اور آڈیو معلومات کھولی جا رہی ہیں…</string>
-    <string name="change_recitation_mode">تلاوت کا موڈ تبدیل کریں</string>
-    <string name="play_selected_mode">منتخب موڈ چلائیں</string>
-    <string name="replay_selected_mode">منتخب موڈ دوبارہ چلائیں</string>
-    <string name="mode_full_ayah">مکمل آیت</string>
-    <string name="mode_follow_words">مکمل آیت اور لفظی ہائی لائٹ</string>
-    <string name="mode_selected_word">منتخب لفظ</string>
-    <string name="current_recitation_mode">تلاوت کا موڈ: %1$s</string>
-    <string name="choose_audio_pack">قاری / محفوظ آڈیو پیک منتخب کریں</string>
-    <string name="remove_audio_pack">غیر فعال آڈیو پیک حذف کریں</string>
-    <string name="no_selectable_pack">کوئی موزوں آڈیو پیک موجود نہیں۔ حذف کرنے کے لیے پہلے دوسرا پیک منتخب کریں۔</string>
-    <string name="corrupt_audio_pack">نامکمل یا خراب آڈیو پیک</string>
-    <string name="confirm_remove_pack">یہ مقامی آڈیو پیک حذف کریں؟
-%1$s</string>
-    <string name="remove_pack">حذف کریں</string>
-    <string name="import_busy">درآمد اور جانچ جاری ہے۔ مکمل ہونے تک تلاوت اور آیت کا انتخاب رکا ہوا ہے۔</string>
+    <string name="confirm_verse">I compared the complete Arabic text and the surah and ayah reference with my Quran.</string>
+    <string name="confirm_before_play">Compare and confirm the complete ayah and reference before playing recitation.</string>
+    <string name="loading_local_verse">Opening the local ayah and audio information…</string>
+    <string name="change_recitation_mode">Change recitation mode</string>
+    <string name="play_selected_mode">Play selected mode</string>
+    <string name="replay_selected_mode">Replay selected mode</string>
+    <string name="mode_full_ayah">Full ayah</string>
+    <string name="mode_follow_words">Full ayah with word highlighting</string>
+    <string name="mode_selected_word">Selected word</string>
+    <string name="current_recitation_mode">Recitation mode %1$s</string>
+    <string name="choose_audio_pack">Select reciter or saved audio pack</string>
+    <string name="remove_audio_pack">Remove inactive audio pack</string>
+    <string name="no_selectable_pack">No eligible audio pack is available. Select another pack before removing this one.</string>
+    <string name="corrupt_audio_pack">Incomplete or damaged audio pack</string>
+    <string name="confirm_remove_pack">Remove this local audio pack?\n%1$s</string>
+    <string name="remove_pack">Remove</string>
+    <string name="import_busy">Import and validation are in progress. Recitation and ayah selection resume after import.</string>
     <string name="live_crop_hint">Camera preview. Tap to focus or drag across the page to select a scan area.</string>
     <string name="live_crop_reset">Reset scan area</string>
     <string name="live_crop_updated">Scan area updated. Scan a photo or wait for automatic scanning.</string>
+    <string name="scan_quality_low_light">The selected area looks dark. Add light and try again.</string>
+    <string name="scan_quality_low_detail">The selected area shows little detail. Hold the camera steady, refocus, or select a sharper photo.</string>
+    <string name="scan_processing_summary">OCR completed in %2$d ms · %1$d variants checked</string>
 </resources>

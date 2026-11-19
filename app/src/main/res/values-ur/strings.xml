@@ -3,4 +3,25 @@
     <string name="live_crop_hint">کیمرے کا منظر۔ فوکس کے لیے تھپتھپائیں یا اسکین کا حصہ منتخب کرنے کے لیے صفحے پر انگلی کھینچیں۔</string>
     <string name="live_crop_reset">اسکین کا حصہ بحال کریں</string>
     <string name="live_crop_updated">اسکین کا حصہ بدل گیا۔ تصویر اسکین کریں یا خودکار اسکین کا انتظار کریں۔</string>
+    <string name="scan_quality_low_light">منتخب حصہ تاریک لگ رہا ہے۔ روشنی بڑھا کر دوبارہ کوشش کریں۔</string>
+    <string name="scan_quality_low_detail">منتخب حصے کی تفصیل کم ہے۔ کیمرا ساکن رکھیں، دوبارہ فوکس کریں یا زیادہ واضح تصویر منتخب کریں۔</string>
+    <string name="scan_processing_summary">او سی آر %2$d ملی سیکنڈ میں مکمل ہوا · %1$d طریقے آزمائے گئے</string>
+    <string name="confirm_verse">میں نے مکمل عربی متن اور سورت/آیت کا حوالہ اپنے قرآن سے ملا لیا ہے۔</string>
+    <string name="confirm_before_play">تلاوت سے پہلے مکمل آیت اور حوالہ ملا کر تصدیق کریں۔</string>
+    <string name="loading_local_verse">مقامی آیت اور آڈیو معلومات کھولی جا رہی ہیں…</string>
+    <string name="change_recitation_mode">تلاوت کا موڈ تبدیل کریں</string>
+    <string name="play_selected_mode">منتخب موڈ چلائیں</string>
+    <string name="replay_selected_mode">منتخب موڈ دوبارہ چلائیں</string>
+    <string name="mode_full_ayah">مکمل آیت</string>
+    <string name="mode_follow_words">مکمل آیت اور لفظی ہائی لائٹ</string>
+    <string name="mode_selected_word">منتخب لفظ</string>
+    <string name="current_recitation_mode">تلاوت کا موڈ: %1$s</string>
+    <string name="choose_audio_pack">قاری / محفوظ آڈیو پیک منتخب کریں</string>
+    <string name="remove_audio_pack">غیر فعال آڈیو پیک حذف کریں</string>
+    <string name="no_selectable_pack">کوئی موزوں آڈیو پیک موجود نہیں۔ حذف کرنے کے لیے پہلے دوسرا پیک منتخب کریں۔</string>
+    <string name="corrupt_audio_pack">نامکمل یا خراب آڈیو پیک</string>
+    <string name="confirm_remove_pack">یہ مقامی آڈیو پیک حذف کریں؟
+%1$s</string>
+    <string name="remove_pack">حذف کریں</string>
+    <string name="import_busy">درآمد اور جانچ جاری ہے۔ مکمل ہونے تک تلاوت اور آیت کا انتخاب رکا ہوا ہے۔</string>
 </resources>

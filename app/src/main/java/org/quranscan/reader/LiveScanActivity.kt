@@ -460,7 +460,8 @@ class LiveScanActivity : ComponentActivity() {
                         candidates.forEach { append("${it.id.surah}:${it.id.ayah} — ${it.canonicalArabic}\n") }
                     }
                 }
-                showStatus("OCR finished · ${scan.variantsChecked} variants · No automatic recitation")
+                val summary = getString(R.string.scan_processing_summary, scan.variantsChecked, scan.elapsedMs)
+                showStatus(listOfNotNull(summary, scan.quality.guidance(this)).joinToString("\n"))
             }
         } catch (e: Exception) {
             postStatus("OCR failed safely: ${e.message ?: "unknown"}")

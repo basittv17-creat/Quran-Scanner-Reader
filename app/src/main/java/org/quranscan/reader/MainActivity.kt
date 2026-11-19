@@ -272,7 +272,8 @@ class MainActivity : Activity() {
                             action("Review ${c.id.surah}:${c.id.ayah} · do not auto-play") { recitation(c.id.surah, c.id.ayah) }
                         }
                     }
-                    label("OCR variants examined: ${ocr.variantsChecked}. Word-level timing requires independently reviewed audio and timestamps.", 12)
+                    label(getString(R.string.scan_processing_summary, ocr.variantsChecked, ocr.elapsedMs), 12)
+                    ocr.quality.guidance(this)?.let { label(it, 13) }
                 }.onFailure { label("OCR failed safely: ${it.message ?: "Unknown error"}", 14, gold) }
             }
         }
@@ -313,8 +314,8 @@ class MainActivity : Activity() {
     }
     private fun help() {
         screen("Help")
-        label("Live scan: allow camera permission, keep the page steady in good light, and tap the preview to focus. Darker/Brighter adjusts supported cameras. Pause auto still allows manual Scan photo.", 16)
-        label("Upload picture: choose a local, sharp image. Rotation is read from EXIF. The gold frame is a guide; OCR currently examines the full image.", 16)
+        label("Live scan: allow camera permission, keep the page steady in good light, tap to focus, and drag across the preview to select the scan area. Darker/Brighter adjusts supported cameras. Pause auto still allows manual Scan photo.", 16)
+        label("Upload picture: choose a local, sharp image. Rotation is read from EXIF. Drag a selection around the text or scan the whole picture.", 16)
         label("Every OCR result is unverified. Open a candidate, compare the complete canonical verse with your printed page and check the Surah/Ayah before pressing Play. No OCR result starts recitation automatically.", 16)
         label("Recitation: import your legally obtained ayah MP3 ZIP. Word playback additionally needs reviewed timings for those exact recordings and this text. Missing or mismatched files disable playback/highlighting.", 16)
         label("Privacy: images are processed locally in memory. No Internet permission, image uploads or analytics. Imported recordings and timing packs stay in app-private storage; Android app storage controls can remove them.", 16)
