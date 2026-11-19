@@ -24,7 +24,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # The hosted Ubuntu runner already provides Android SDK tooling.
+      # android-actions/setup-android@v3 attempts to install the removed
+      # SDK 'tools' package and fails before compilation.
+      - name: Check Android SDK availability
+        run: |
+          test -d "${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "Android SDK: ${ANDROID_HOME:-/usr/local/lib/android/sdk}"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
