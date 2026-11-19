@@ -65,4 +65,40 @@ class AudioPackCatalogTest {
         assertTrue(extra.exists())
         assertEquals(AudioPackCatalog.MAX_PACKS, catalog.directories().size)
     }
+    @Test fun publicationFailureRetainsCompleteNewPackAndLegacy() = withCatalog { root, catalog ->
+        val legacy = File(root, "active").apply { mkdir() }
+        File(legacy, "fixture").writeText("legacy")
+        val blocked = File(root, "selection").apply { writeText("unavailable") }
+        assertTrue(runCatching { catalog.publishValidated(stage(root, "new")) }.isFailure)
+        assertEquals("legacy", File(legacy, "fixture").readText())
+        assertTrue(blocked.delete())
+        val reopened = AudioPackCatalog(root)
+        val saved = reopened.directories().single { it.first != "legacy" }
+        assertEquals("new", File(saved.second, "fixture").readText())
+        assertEquals("legacy", reopened.selectedId())
+        assertTrue(runCatching { reopened.removeInactive(saved.first) }.isFailure)
+        reopened.select(saved.first)
+        assertEquals(saved.first, reopened.selectedId())
+    }
+
+    @Test fun missingTargetFailsClosedUntilAnotherPackIsSelected() = withCatalog { root, catalog ->
+        val original = catalog.publishValidated(stage(root, "original"))
+        val missing = catalog.publishValidated(stage(root, "missing"))
+        assertTrue(catalog.directory(missing).deleteRecursively())
+        assertTrue(runCatching { catalog.selectedDirectory() }.isFailure)
+        assertTrue(runCatching { catalog.removeInactive(original) }.isFailure)
+        catalog.select(original)
+        assertEquals(original, catalog.selectedId())
+    }
+
+    @Test fun symlinkInInactivePackCannotDeleteExternalFiles() = withCatalog { root, catalog ->
+        val target = stage(root, "outside")
+        val a = catalog.publishValidated(stage(root, "a"))
+        val active = catalog.publishValidated(stage(root, "b"))
+        File(catalog.directory(a), "link").let { Files.createSymbolicLink(it.toPath(), target.toPath()) }
+        assertTrue(runCatching { catalog.removeInactive(a) }.isFailure)
+        assertEquals("outside", File(target, "fixture").readText())
+        assertEquals("a", File(catalog.directory(a), "fixture").readText())
+        assertEquals(active, catalog.selectedId())
+    }
 }

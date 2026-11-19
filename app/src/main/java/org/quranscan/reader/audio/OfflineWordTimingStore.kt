@@ -15,7 +15,7 @@ import java.util.zip.ZipInputStream
  * canonical text and the *exact* installed audio pack, not just user claims in the timing ZIP.
  */
 class OfflineWordTimingStore(private val context: Context) {
-    private val root get() = File(context.filesDir, "offline_word_timings")
+    private val root get() = File(context.filesDir.canonicalFile, "offline_word_timings")
     private val active get() = PackActivation.recover(root)
     private val filename = Regex("[0-9]{3}_[0-9]{3}\\.tsv")
 

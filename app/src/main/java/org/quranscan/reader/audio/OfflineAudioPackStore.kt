@@ -1,44 +1,48 @@
 package org.quranscan.reader.audio
 
-import org.quranscan.reader.core.QuranVerseCounts
 import android.content.Context
 import android.net.Uri
-import java.io.BufferedInputStream
 import java.io.File
-import java.io.FileOutputStream
-import java.security.MessageDigest
-import java.util.zip.ZipInputStream
+import java.io.IOException
 
 /** Imports user-provided licensed audio as local app-private files. No internet/network calls.
  * Data integrity, archive limits and path validation are enforced before activation.
  * IMPORTANT: checksums do not establish recording authenticity or redistribution rights.
  */
 class OfflineAudioPackStore(private val context: Context) {
-    private val root get() = File(context.filesDir, "offline_ayah_audio")
+    private val root get() = File(context.filesDir.canonicalFile, "offline_ayah_audio")
     private val catalog get() = AudioPackCatalog(root)
     private val active get() = catalog.selectedDirectory()
     data class InstalledPack(val id: String, val manifest: AudioPackManifest?)
 
-    fun installedPacks(): List<InstalledPack> = catalog.directories().map { (id, folder) ->
-        InstalledPack(id, manifestAt(folder))
+    fun installedPacks(): List<InstalledPack> {
+        PackStaging.cleanAbandoned(root)
+        PackStaging.cleanAbandoned(File(root, "selection"), selection = true)
+        return catalog.directories().map { (id, folder) -> InstalledPack(id, manifestAt(folder)) }
     }
-    fun selectedPackId(): String = catalog.selectedId()
+    // The pack chooser can repair a damaged record. Playback and removal still use the strict catalog.
+    fun selectedPackId(): String = try {
+        catalog.selectedId()
+    } catch (_: InvalidPackSelection) {
+        ""
+    }
     fun selectPack(id: String) {
-        require(manifestAt(catalog.directory(id)) != null) { "Selected pack is corrupt or incomplete" }
-        catalog.select(id)
+        catalog.select(id) { folder ->
+            val manifest = manifestAt(folder) ?: error("Selected pack is corrupt or incomplete")
+            AudioPackArchive.verify(folder, manifest)
+        }
     }
     fun removeInactivePack(id: String) = catalog.removeInactive(id)
-    private val allowedClip = Regex("[0-9]{3}_[0-9]{3}\\.mp3")
 
     fun installedManifest(): AudioPackManifest? = runCatching { manifestAt(active) }.getOrNull()
 
     private fun manifestAt(folder: File): AudioPackManifest? = runCatching {
         val manifestFile = File(folder, "manifest.tsv")
-        if (!manifestFile.isFile || manifestFile.length() > 1024 * 1024L) null else {
+        if (!isPrivatePackPath(manifestFile) || !manifestFile.isFile || manifestFile.length() > 1024 * 1024L) null else {
             val manifest = AudioPackFormat.parse(manifestFile.readText(Charsets.UTF_8))
             if (manifest.entries.values.any {
                 val file = File(folder, it.filename)
-                !file.isFile || file.length() !in 1..8L * 1024 * 1024
+                !isPrivatePackPath(file) || !file.isFile || file.length() !in 1..8L * 1024 * 1024
             }) null else manifest
         }
     }.getOrNull()
@@ -52,66 +56,16 @@ class OfflineAudioPackStore(private val context: Context) {
 
     fun installArchive(uri: Uri): AudioPackManifest {
         catalog.requireCapacity()
-        val stage = PackStaging.create(root)
+        val stage = PackStaging.create(root, exclusive = true)
         try {
-            val names = hashSetOf<String>()
-            var totalBytes = 0L
-            var itemCount = 0
-            val input = context.contentResolver.openInputStream(uri)
-                ?: error("Cannot open selected audio ZIP")
-            ZipInputStream(BufferedInputStream(input)).use { zip ->
-                while (true) {
-                    val item = zip.nextEntry ?: break
-                    require(!item.isDirectory) { "Folder entries not allowed" }
-                    val name = item.name
-                    require(name == "manifest.tsv" || allowedClip.matches(name)) {
-                        "Unrecognized or unsafe archive path"
-                    }
-                    require(names.add(name)) { "Duplicate ZIP entry" }
-                    require(++itemCount <= QuranVerseCounts.totalVerses + 1) { "Too many ZIP entries" }
-                    val out = File(stage, name)
-                    // Enforce byte limits on *decompressed* files to prevent ZIP bombs.
-                    val maxFile = if (name == "manifest.tsv") 1024L * 1024L else 8L * 1024L * 1024L
-                    var fileBytes = 0L
-                    FileOutputStream(out).use { output ->
-                        val buf = ByteArray(64 * 1024)
-                        while (true) {
-                            if (Thread.currentThread().isInterrupted) throw InterruptedException("Import cancelled")
-                            val count = zip.read(buf)
-                            if (count == -1) break
-                            if (count == 0) continue
-                            fileBytes += count
-                            totalBytes += count
-                            require(fileBytes <= maxFile && totalBytes <= 1500L * 1024L * 1024L) {
-                                "Audio pack exceeds safe size limit"
-                            }
-                            output.write(buf, 0, count)
-                        }
-                        output.fd.sync()
-                    }
-                    zip.closeEntry()
-                }
+            val manifest = try {
+                val input = context.contentResolver.openInputStream(uri)
+                    ?: error("Cannot open selected audio ZIP")
+                input.use { AudioPackArchive.extract(it, stage) }
+            } catch (failure: SecurityException) {
+                throw IOException("Audio ZIP access denied. Choose the local ZIP again.", failure)
             }
-            require("manifest.tsv" in names) { "Missing manifest.tsv" }
-            val manifest = AudioPackFormat.parse(File(stage, "manifest.tsv").readText(Charsets.UTF_8))
-            require(names == manifest.entries.values.mapTo(hashSetOf("manifest.tsv")) { it.filename }) {
-                "ZIP files must exactly match the manifest"
-            }
-            manifest.entries.values.forEach { item ->
-                val digest = MessageDigest.getInstance("SHA-256")
-                File(stage, item.filename).inputStream().buffered().use { input ->
-                    val buf = ByteArray(64 * 1024)
-                    while (true) {
-                        if (Thread.currentThread().isInterrupted) throw InterruptedException("Import cancelled")
-                        val read = input.read(buf)
-                        if (read == -1) break
-                        digest.update(buf, 0, read)
-                    }
-                }
-                val actual = digest.digest().joinToString("") { "%02x".format(it) }
-                require(actual == item.sha256) { "Audio file hash mismatch: ${item.filename}" }
-            }
-            if (Thread.currentThread().isInterrupted) throw InterruptedException("Import cancelled")
+            AudioPackArchive.checkInterrupted()
             catalog.publishValidated(stage)
             return manifest
         } finally {
