@@ -24,6 +24,7 @@ import org.quranscan.reader.audio.WordTimingFormat
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.core.QuranVerseCounts
 import org.quranscan.reader.core.VerseId
+import org.quranscan.reader.core.VerseNavigation
 import java.util.concurrent.Executors
 
 /** Native verse + word-following playback. Nothing is verified from OCR alone.
@@ -58,6 +59,7 @@ class RecitationActivity : ComponentActivity() {
             if (followWords && player.isPlaying()) {
                 val ms = player.currentPositionMs()
                 val word = if (ms == null) -1 else WordTimingFormat.activeIndex(timing.orEmpty(), ms)
+                if (word >= 0) chosenWord = word
                 if (word != lastHighlighted) displayWord(word)
             }
             timer.postDelayed(this, 80)
@@ -102,6 +104,7 @@ class RecitationActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val arabicSize = getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getInt("arabic_size", 25).coerceIn(21, 37)
         player = OfflineAyahPlayer(
+            applicationContext,
             onFinished = { status.text = "آڈیو ختم ہوگئی۔"; displayWord(-1) },
             onError = { status.text = it; displayWord(-1) }
         )
@@ -150,6 +153,8 @@ class RecitationActivity : ComponentActivity() {
         inputs.addView(ayahInput, LinearLayout.LayoutParams(0, dp(58), 1f))
         column.addView(inputs)
         button("آیت منتخب کریں") { loadSelection() }
+        button("◀ پچھلی آیت") { moveAyah(-1) }
+        button("اگلی آیت ▶") { moveAyah(1) }
         verseView = heading("", 25f, gold, true)
         button("▶ مکمل آیت چلائیں") { followWords = false; displayWord(-1); playFull() }
         button("▶ مکمل آیت + الفاظ ہائی لائٹ") { followWords = true; playFull() }
@@ -170,6 +175,14 @@ class RecitationActivity : ComponentActivity() {
         status = heading("Checking local resources…", 14f, gold)
         heading("SHA صرف فائل کی سالمیت چیک کرتا ہے؛ قاری، تلفظ، اعراب اور لفظی اوقات کی انسانی تصدیق باقی رہتی ہے۔", 13f)
         button("← Home") { finish() }
+    }
+
+    private fun moveAyah(direction: Int) {
+        val next = VerseNavigation.adjacent(VerseId(activeKey.surah, activeKey.ayah), direction)
+        if (next == null) { status.text = "No adjacent verse at this boundary."; return }
+        surahInput.setText(next.surah.toString())
+        ayahInput.setText(next.ayah.toString())
+        loadSelection() // Selection never starts playback.
     }
 
     private fun displayWord(index: Int) {
@@ -213,8 +226,8 @@ class RecitationActivity : ComponentActivity() {
             status.text = "Word highlighting unavailable: import timings for the SAME audio + canonical text."
             return
         }
+        status.text = if (followWords) "Following audio timing; approximate MP3 seek and unverified timing quality." else "Preparing local full ayah audio…"
         player.play(file)
-        status.text = if (followWords) "Following audio timing; approximate MP3 seek and unverified timing quality." else "Playing local full ayah audio."
     }
 
     private fun selectWord(index: Int) {
@@ -234,8 +247,8 @@ class RecitationActivity : ComponentActivity() {
         }
         followWords = false
         displayWord(chosenWord)
+        status.text = "Preparing word ${chosenWord + 1}; MP3 seek may be approximate."
         player.play(file, window.startMs, window.endMs)
-        status.text = "Playing word ${chosenWord + 1}; MP3 seek may be approximate."
     }
 
     private fun approvedAudio(): java.io.File? {

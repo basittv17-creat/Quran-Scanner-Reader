@@ -83,3 +83,11 @@ Rechecked main at `1835f41fcc42faeae79993cc2597b99f35d564e4`: 10 commits, 71 tra
 Corpus provenance rerun locally: all 6236 entries match pinned publisher bytes including marks. Added an offline OCR-export evaluator with strict character/word edit rates, exact ordered reference-list recognition accuracy, abstention/wrong-prediction counts, per-printing groups and measured mean/p95 latency. Five synthetic metric unit tests pass locally. Synthetic tests are not Mushaf accuracy evidence. Real legally usable reviewed image exports remain BLOCKED; no accuracy percentage is claimed.
 
 Fixed obsolete Phase 7 validation that still required an empty corpus. CI now tests benchmark calculations in addition to the existing Android and corpus gates. Local environment has no Gradle/kotlinc installation; Android and pure Kotlin checks use GitHub Actions. No APK/AAB tasks were invoked.
+
+### OCR measurement checkpoint verified
+
+Commit `507157fc79acdce7dad38012d1e7ebeaa39707d4`, Actions https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44479977288 completed successfully. Logs confirm 7 JVM tests (zero failures/errors/skips), lint 0 errors / 36 warnings, five benchmark unit tests and no APK/AAB. Source ZIP https://drive.google.com/file/d/1MEIjAvFLCb_swUyrsBvBXnxo00796-aw/view ; PDF https://drive.google.com/file/d/1kEIyhMkhA_h-aGviI1LOu7l6Gr60Zxb_/view . SHA-256: `abcbb2f5352f6d8fa73a374b0ec253d1c28d8da284e5175f02735e54821beb1d`. Gmail notification sent to requested address.
+
+### Native audio controls and interruptions
+
+Replaced synchronous MediaPlayer preparation with prepareAsync. Delayed callbacks check current player identity; Pause during preparation/seek prevents later background start. Playback waits for seek completion, checks timing against exact audio duration, requests audio focus with API 23 fallback and pauses on focus loss/headphone disconnect. Resume is explicit. Added previous/next ayah selection across all surahs, without auto-play or wrapping at Quran boundaries. A JVM test checks all adjacent references and round trips. Device playback/interrupt/seek QA remains DEFERRED under the no-APK rule. No recording/timing assets added.

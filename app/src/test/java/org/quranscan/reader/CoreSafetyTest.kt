@@ -7,6 +7,17 @@ import org.quranscan.reader.audio.*
 
 /** Synthetic fixtures only: these tests make no Quran/OCR accuracy claims. */
 class CoreSafetyTest {
+    @Test fun adjacentReferencesCrossSurahsAndStopAtQuranBoundaries() {
+        assertNull(VerseNavigation.adjacent(VerseId(1, 1), -1))
+        assertNull(VerseNavigation.adjacent(VerseId(114, 6), 1))
+        assertEquals(VerseId(2, 1), VerseNavigation.adjacent(VerseId(1, 7), 1))
+        assertEquals(VerseId(1, 7), VerseNavigation.adjacent(VerseId(2, 1), -1))
+        for (s in 1..114) for (a in 1..QuranVerseCounts.counts[s - 1]) {
+            val id = VerseId(s, a)
+            VerseNavigation.adjacent(id, 1)?.let { assertEquals(id, VerseNavigation.adjacent(it, -1)) }
+        }
+        assertTrue(runCatching { VerseNavigation.adjacent(VerseId(1, 1), 0) }.isFailure)
+    }
     @Test fun rejectsOutOfRangeReferences() {
         for ((s, a) in listOf(0 to 1, 115 to 1, 1 to 8, 114 to 7, 2 to 287)) {
             assertTrue(runCatching { VerseId(s, a) }.isFailure)
