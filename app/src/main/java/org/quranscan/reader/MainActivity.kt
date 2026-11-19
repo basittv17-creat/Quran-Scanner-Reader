@@ -11,6 +11,8 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.*
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.drawerlayout.widget.DrawerLayout
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.core.VerseCandidates
 import org.quranscan.reader.ocr.OfflineArabicOcr
@@ -21,6 +23,9 @@ import java.util.concurrent.Executors
  */
 class MainActivity : Activity() {
     private lateinit var root: LinearLayout
+    private lateinit var drawer: DrawerLayout
+    private val preferences by lazy { getSharedPreferences("quran_reader_settings", MODE_PRIVATE) }
+    private var arabicSize = 25
     private val bg = Color.rgb(0, 65, 48)
     private val gold = Color.rgb(216, 173, 86)
     private val panel = Color.rgb(12, 91, 71)
@@ -30,7 +35,9 @@ class MainActivity : Activity() {
     private var profile = OfflineArabicOcr.Profile.AUTO
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
+        arabicSize = preferences.getInt("arabic_size", 25).coerceIn(21, 37)
         profile = runCatching {
             OfflineArabicOcr.Profile.valueOf(getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getString("profile", "AUTO")!!)
         }.getOrDefault(OfflineArabicOcr.Profile.AUTO)
@@ -43,19 +50,47 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun screen(title: String) {
+    private fun screen(title: String, scrollable: Boolean = true) {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
             setPadding(22, 26, 22, 22)
         }
-        setContentView(root)
+        drawer = DrawerLayout(this)
+        val content: View = if (scrollable) ScrollView(this).apply { isFillViewport = true; addView(root) } else root
+        drawer.addView(content, DrawerLayout.LayoutParams(-1, -1))
+        val side = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16, 32, 16, 24)
+            setBackgroundColor(bg)
+        }
+        fun item(title: String, click: () -> Unit) {
+            side.addView(Button(this).apply {
+                text = title; isAllCaps = false; setTextColor(Color.WHITE)
+                setOnClickListener { drawer.closeDrawers(); click() }
+            }, LinearLayout.LayoutParams(-1, -2))
+        }
+        side.addView(TextView(this).apply { text = "Quran Scan Reader"; textSize = 23f; setTextColor(gold) })
+        item("Home") { home() }
+        item("Live scanner") { camera() }
+        item("Gallery scanner") { gallery() }
+        item("Read Quran / recitation") { recitation() }
+        item("Settings") { settings() }
+        item("About / text source") { about() }
+        item("Offline design preview") { preview() }
+        drawer.addView(ScrollView(this).apply { addView(side) }, DrawerLayout.LayoutParams(
+            (280 * resources.displayMetrics.density).toInt(), -1, Gravity.START))
+        setContentView(drawer)
+        root.addView(Button(this).apply {
+            text = "☰ Menu"; contentDescription = "Open navigation menu"
+            setOnClickListener { drawer.openDrawer(Gravity.START) }
+        }, LinearLayout.LayoutParams(-2, -2))
         label(title, 25, gold)
     }
     private fun label(value: String, size: Int = 17, color: Int = Color.WHITE, arabic: Boolean = false) {
         root.addView(TextView(this).apply {
             text = value
-            textSize = size.toFloat()
+            textSize = if (arabic) maxOf(size, arabicSize).toFloat() else size.toFloat()
             setTextColor(color)
             gravity = Gravity.CENTER
             setPadding(6, 12, 6, 12)
@@ -83,8 +118,8 @@ class MainActivity : Activity() {
     private fun home() {
         scanToken++
         screen("☪ Quran Scan Reader")
-        label("بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ", 23, gold, true)
-        label("Native offline Quran scanner + local recitation prototype — Phase 9", 14)
+        runCatching { OfflineCorpus(this).find(org.quranscan.reader.core.VerseId(1, 1)) }.getOrNull()?.let { label(it, 23, gold, true) }
+        label("Offline Quran text • Camera and gallery scanning", 14)
         val status = runCatching {
             val db = OfflineCorpus(this)
             "Quran text: ${db.count()}/6236  |  ${if (db.isComplete()) "structurally complete (review pending)" else "incomplete; matching disabled"}"
@@ -120,9 +155,17 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK || requestCode != pickImage) return
-        val bitmap = data?.data?.let { decodePreview(it) }
-        if (bitmap == null) { message("Unable to decode image"); return }
-        scan(bitmap)
+        val uri = data?.data ?: return
+        val token = ++scanToken
+        screen("Opening selected image")
+        label("Preparing image offline…", 16)
+        worker.execute {
+            val bitmap = decodePreview(uri)
+            runOnUiThread {
+                if (token != scanToken || isFinishing || isDestroyed) { bitmap?.recycle(); return@runOnUiThread }
+                if (bitmap == null) { message("Unable to decode image"); home() } else scan(bitmap)
+            }
+        }
     }
     private fun decodePreview(uri: Uri): Bitmap? {
         return try {
@@ -131,15 +174,31 @@ class MainActivity : Activity() {
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
         var sample = 1
         while (maxOf(bounds.outWidth / sample, bounds.outHeight / sample) > 2048) sample *= 2
-        contentResolver.openInputStream(uri)?.use {
+        val decoded = contentResolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+        } ?: return null
+        val orientation = runCatching {
+            contentResolver.openInputStream(uri)?.use { androidx.exifinterface.media.ExifInterface(it).getAttributeInt(
+                androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, 1) }
+        }.getOrNull() ?: 1
+        val matrix = android.graphics.Matrix()
+        when (orientation) {
+            2 -> matrix.setScale(-1f, 1f)
+            3 -> matrix.setRotate(180f)
+            4 -> matrix.setScale(1f, -1f)
+            5 -> { matrix.setRotate(90f); matrix.postScale(-1f, 1f) }
+            6 -> matrix.setRotate(90f)
+            7 -> { matrix.setRotate(270f); matrix.postScale(-1f, 1f) }
+            8 -> matrix.setRotate(270f)
         }
+        if (matrix.isIdentity) decoded else Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+            .also { if (it !== decoded) decoded.recycle() }
         } catch (_: Exception) { null }
     }
 
     private fun scan(bitmap: Bitmap) {
         val token = ++scanToken
-        screen("Offline Arabic OCR")
+        screen("Offline Arabic OCR", scrollable = false)
         label("اسکین جاری ہے — شناخت شدہ متن ابھی غیر مصدقہ ہے", 17, gold, true)
         label("Profile: $profile   •   All processing happens on your phone", 13)
         root.addView(ImageView(this).apply {
@@ -193,14 +252,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun menu() {
-        screen("Menu")
-        action("Home") { home() }
-        action("Offline Recitation") { recitation() }
-        action("Settings") { settings() }
-        action("About") { about() }
-        action("WebView preview") { preview() }
-    }
+    private fun menu() { drawer.openDrawer(Gravity.START) }
     private fun settings() {
         screen("Settings")
         label("OCR style selection (same generic Arabic model; script training and print testing pending)", 14)
@@ -209,6 +261,16 @@ class MainActivity : Activity() {
             profile = options[(options.indexOf(profile) + 1) % options.size]
             getSharedPreferences("quran_reader_settings", MODE_PRIVATE).edit()
                 .putString("profile", profile.name).apply()
+            settings()
+        }
+        action("Arabic text size: $arabicSize — change") {
+            arabicSize = if (arabicSize >= 37) 21 else arabicSize + 4
+            preferences.edit().putInt("arabic_size", arabicSize).apply()
+            settings()
+        }
+        val keepAwake = preferences.getBoolean("keep_screen_on", false)
+        action("Keep scanner screen awake: ${if (keepAwake) "On" else "Off"}") {
+            preferences.edit().putBoolean("keep_screen_on", !keepAwake).apply()
             settings()
         }
         label("Bundled Arabic model: tessdata_fast / ara.traineddata, Apache-2.0.  No INTERNET permission.", 14)
@@ -227,10 +289,18 @@ class MainActivity : Activity() {
     private fun preview() {
         val web = android.webkit.WebView(this)
         web.settings.javaScriptEnabled = false
+        web.settings.allowContentAccess = false
+        web.settings.allowFileAccess = false
+        web.settings.blockNetworkLoads = true
+        web.webViewClient = object : android.webkit.WebViewClient() {
+            @Deprecated("API 23 compatibility")
+            override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, url: String?): Boolean = true
+            override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean = true
+        }
         web.loadUrl("file:///android_asset/preview.html")
         setContentView(web)
     }
     private fun message(text: String) { Toast.makeText(this, text, Toast.LENGTH_LONG).show() }
     @Deprecated("Prototype navigation")
-    override fun onBackPressed() { home() }
+    override fun onBackPressed() { if (::drawer.isInitialized && drawer.isDrawerOpen(Gravity.START)) drawer.closeDrawers() else home() }
 }

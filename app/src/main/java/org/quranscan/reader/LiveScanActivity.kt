@@ -70,6 +70,7 @@ class LiveScanActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.decorView.keepScreenOn = getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getBoolean("keep_screen_on", false)
         profile = runCatching {
             OfflineArabicOcr.Profile.valueOf(
                 getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getString("profile", "AUTO") ?: "AUTO"
@@ -149,6 +150,7 @@ class LiveScanActivity : ComponentActivity() {
         showStatus("Opening CameraX… No internet access is required.")
         val future = ProcessCameraProvider.getInstance(this)
         future.addListener({
+            if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return@addListener
             try {
                 val provider = future.get()
                 cameraProvider = provider
@@ -326,6 +328,16 @@ class LiveScanActivity : ComponentActivity() {
     }
     private fun showStatus(msg: String) { status.text = msg }
     private fun dp(v: Int) = (v * resources.displayMetrics.density + 0.5f).toInt()
+
+    override fun onStop() {
+        active = false
+        super.onStop()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (cameraProvider != null) { active = true; gate.reset() }
+    }
 
     override fun onDestroy() {
         active = false

@@ -1,0 +1,15 @@
+<resources>
+    <style name="Theme.QuranReader" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#D8AD56</item>
+        <item name="android:windowBackground">#004130</item>
+        <item name="android:statusBarColor">#004130</item>
+        <item name="android:navigationBarColor">#004130</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+    <style name="Theme.QuranReader.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#004130</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_quran</item>
+        <item name="postSplashScreenTheme">@style/Theme.QuranReader</item>
+    </style>
+</resources>

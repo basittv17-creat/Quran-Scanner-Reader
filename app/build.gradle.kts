@@ -9,6 +9,10 @@ android {
 
 // Compiled Tesseract Android/JNI runtime resolved at BUILD time. At runtime, fully offline.
 dependencies {
+    implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("androidx.drawerlayout:drawerlayout:1.2.0")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
+    testImplementation("junit:junit:4.13.2")
     implementation("cz.adaptech.tesseract4android:tesseract4android:4.9.0")
     // CameraX 1.4.2: stable, tested API baseline; runtime has no network permission.
     implementation("androidx.camera:camera-core:1.4.2")

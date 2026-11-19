@@ -15,6 +15,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Verify source and pinned dependencies
+        run: python3 tools/check_source_policy.py
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -35,7 +37,7 @@ jobs:
         with:
           gradle-version: '8.10.2'
       - name: Compile Kotlin and process resources ONLY
-        run: gradle --no-daemon --stacktrace :app:compileDebugKotlin :app:processDebugResources
+        run: gradle --no-daemon --stacktrace :app:compileDebugKotlin :app:processDebugResources :app:testDebugUnitTest :app:lintDebug
       - name: Prove no APK or AAB was generated
         if: always()
         run: |

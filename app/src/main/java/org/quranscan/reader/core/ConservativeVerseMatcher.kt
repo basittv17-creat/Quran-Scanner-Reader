@@ -12,6 +12,7 @@ class ConservativeVerseMatcher(private val corpus: Map<VerseId, String>) {
         .trim()
 
     fun match(ocrText: String): RecognitionResult {
+        if (corpus.size != QuranVerseCounts.totalVerses) return RecognitionResult.Uncertain("Incomplete reference corpus")
         val candidate = key(ocrText)
         if (candidate.length < 12) return RecognitionResult.Uncertain("Insufficient OCR text")
         val matches = corpus.filterValues { key(it) == candidate }

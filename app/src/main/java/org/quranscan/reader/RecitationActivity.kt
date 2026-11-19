@@ -100,11 +100,13 @@ class RecitationActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val arabicSize = getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getInt("arabic_size", 25).coerceIn(21, 37)
         player = OfflineAyahPlayer(
             onFinished = { status.text = "آڈیو ختم ہوگئی۔"; displayWord(-1) },
             onError = { status.text = it; displayWord(-1) }
         )
         buildScreen()
+        verseView.textSize = arabicSize.toFloat()
         val s = intent.getIntExtra(EXTRA_SURAH, 1)
         val a = intent.getIntExtra(EXTRA_AYAH, 1)
         if (QuranVerseCounts.valid(s, a)) {
@@ -245,6 +247,11 @@ class RecitationActivity : ComponentActivity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
+    override fun onStop() {
+        player.pause()
+        super.onStop()
+    }
+
     override fun onDestroy() {
         timer.removeCallbacks(highlightLoop)
         player.release()

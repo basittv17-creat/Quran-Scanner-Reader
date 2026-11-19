@@ -7,7 +7,7 @@ This Android Studio **source** project is not a complete verified Quran reader a
 
 ## Current scope
 
-- Kotlin Android Native app, green/gold screens and an offline local WebView style preview.
+- Kotlin Android Native app, AndroidX splash, green/gold screens, sidebar, persisted settings and a restricted offline WebView style preview.
 - Gallery and CameraX frame sampling (Phase 5/6 source), Arabic `tessdata_fast`
   offline OCR model. This model has not been trained/tested for every Pakistani/
   Madani Quran printing and cannot validate harakat precisely.
@@ -29,8 +29,8 @@ This Android Studio **source** project is not a complete verified Quran reader a
    review appropriately licensed recordings and import the valid audio ZIP.
 3. No licensed human-reviewed word timing data are included. Use the new pack
    builder with approved timestamp and matching exact audio files.
-4. No comprehensive OCR accuracy tests on Pakistani 15-line / Madani printings,
-   Android SDK compile, emulator or physical-phone testing have taken place.
+4. Android Kotlin compilation and resources passed in GitHub Actions. Comprehensive OCR
+   accuracy tests on Pakistani 15-line / Madani printings, emulator and physical-phone testing remain outstanding.
 5. Visual UI, diacritic quality control, accessibility, memory/latency profiling,
    privacy review and final release packaging all need additional work.
 
@@ -38,7 +38,7 @@ This Android Studio **source** project is not a complete verified Quran reader a
 
 Android Studio recommended; JDK 17; Android SDK 35; minSdk 23 (Android 6+);
 AGP 8.7.3; Kotlin 2.0.21; CameraX 1.4.2; Tesseract4Android 4.9.0.
-**No Gradle wrapper included** and Android SDK build has not been run here.
+**No Gradle wrapper included**; GitHub Actions provisions Gradle 8.10.2. Compilation/resources have passed; no APK/AAB was built.
 
 Pure-code checks (require Python 3, `kotlinc`, Java):
 
@@ -75,9 +75,7 @@ independently establish authenticity, tajweed accuracy, licensing, or timings.
 Native green/gold home actions updated and GitHub Actions workflow added in
 `.github/workflows/source-validation.yml`. The workflow only runs Python checks,
 Kotlin compilation and Android resource processing; **never assemble APK, bundle
-AAB, sign, or publish**. The Github repository has **not** been created from this
-environment; see `docs/PHASE9_GITHUB_URDU.md` and the optional user-run
-`tools/push_to_new_github_repo.sh`.
+AAB, sign, or publish**. The repository is connected and main is updated using the GitHub connection. Historical milestone notes are retained for context.
 
 ## Current audit — 19 November 2026
 
@@ -86,3 +84,7 @@ GitHub repository is connected. The previous Actions run failed on missing View 
 ## Canonical text provenance
 
 Downloaded twice from the Tanzil HTTPS publisher endpoint on 2026-11-19; both responses were byte-identical. Original source and complete copyright block are retained in assets/quran. `python3 tools/verify_corpus_provenance.py` checks 114 surahs, 6,236 references, source/output SHA-256 and exact Arabic equality including every mark. These checks do not replace independent scholarly review. Tanzil permits verbatim redistribution with attribution; see https://tanzil.net/docs/Text_License. No publisher-signed checksum was available.
+
+## Expanded verification and UI
+
+CI now runs source/dependency version policy, publisher corpus provenance, Python/pure Kotlin checks, `:app:compileDebugKotlin`, `:app:processDebugResources`, `:app:testDebugUnitTest`, and `:app:lintDebug`. No packaging tasks are used. Seven JVM safety tests cover ambiguous/incomplete matches, invalid references, frame throttling, timing boundaries/digests and unsafe audio manifests. Gallery decoding runs off the main thread with EXIF orientation handling. The canonical corpus is immutable and cached once per process. These improvements require Android device QA; consult `docs/EXTERNAL_ASSETS_AND_QA.md`.

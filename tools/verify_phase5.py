@@ -14,13 +14,13 @@ assert model.stat().st_size > 1_000_000
 manifest=(root/'app/src/main/AndroidManifest.xml').read_text()
 assert 'android.permission.INTERNET' not in manifest
 assert 'usesCleartextTraffic="false"' in manifest
-assert (root/'app/src/main/assets/quran/verses.jsonl').read_bytes() == b'', 'Unexpected unverified Quran data'
+subprocess.run(['python3', str(root/'tools/verify_corpus_provenance.py')], check=True)
 source=(root/'app/src/main/java/org/quranscan/reader/ocr/OfflineArabicOcr.kt').read_text()
 assert 'engine.getUTF8Text()' in source
 assert 'needsUserConfirmation' not in source or True
 assert 'MODEL_SHA256' in source
 print('PASS: packaged Arabic OCR model SHA-256 and size')
 print('PASS: no INTERNET permission in manifest')
-print('PASS: unverified Quran corpus NOT silently populated')
+print('PASS: bundled Quran publisher snapshot checked')
 print('PASS: offline engine references bundled tessdata')
 print('CAUTION: no Android Gradle build executed; Indo-Pak/Madani test coverage remains absent')

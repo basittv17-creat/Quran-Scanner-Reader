@@ -2,7 +2,7 @@ package org.quranscan.reader.core
 
 /** No OCR output is considered canonical Quran text without corpus verification. */
 data class VerseId(val surah: Int, val ayah: Int) {
-    init { require(surah in 1..114 && ayah > 0) }
+    init { require(QuranVerseCounts.valid(surah, ayah)) }
 }
 data class VerseMatch(val id: VerseId, val confidence: Float, val canonicalArabic: String) {
     init { require(confidence in 0f..1f && canonicalArabic.isNotBlank()) }
