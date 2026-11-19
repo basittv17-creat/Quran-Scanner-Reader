@@ -3,11 +3,16 @@ package org.quranscan.reader
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.Intent
+import android.hardware.display.DisplayManager
+import android.os.Handler
+import android.os.Looper
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Color
 import android.graphics.Matrix
+import android.net.Uri
+import android.provider.Settings
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.MotionEvent
@@ -23,6 +28,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.Camera
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.CameraState
+import androidx.camera.core.UseCase
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -35,11 +42,12 @@ import androidx.core.content.ContextCompat
 import org.quranscan.reader.core.CropBounds
 import org.quranscan.reader.core.LiveScanRegion
 import org.quranscan.reader.core.ImageDecodeLimits
-import org.quranscan.reader.core.CameraScanGate
+import org.quranscan.reader.core.CameraSessionGate
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.core.VerseCandidates
 import org.quranscan.reader.ocr.OfflineArabicOcr
-import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executor
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -52,16 +60,39 @@ import java.util.concurrent.atomic.AtomicBoolean
 class LiveScanActivity : ComponentActivity() {
     private val green = Color.rgb(0, 65, 48)
     private val gold = Color.rgb(216, 173, 86)
-    private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-    private val gate = CameraScanGate(4_500L)
-    private val manuallyRequested = AtomicBoolean(false)
+    private val analysisExecutor = Executors.newSingleThreadExecutor()
+    // A late callback still owns its proxy after shutdown. Its invalid session makes it close-only.
+    private val cameraCallbacks = Executor { task ->
+        try {
+            analysisExecutor.execute(task)
+        } catch (_: RejectedExecutionException) {
+            task.run()
+        }
+    }
+    private val gate = CameraSessionGate()
     private val paused = AtomicBoolean(false)
-    private val processing = AtomicBoolean(false)
     private var cameraProvider: ProcessCameraProvider? = null
+    private var boundUseCases = emptyArray<UseCase>()
     private var imageCapture: ImageCapture? = null
     private var camera: Camera? = null
-    private var cameraStarting = false
-    @Volatile private var session = 0
+    private var openingSession: CameraSessionGate.Session? = null
+    private var boundSession: CameraSessionGate.Session? = null
+    private var targetRotation: Int? = null
+    private var cameraFailed = false
+    private var resumed = false
+    private var permissionRequested = false
+    private val displayManager by lazy { getSystemService(DisplayManager::class.java) }
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) = Unit
+        override fun onDisplayRemoved(displayId: Int) = Unit
+        override fun onDisplayChanged(displayId: Int) {
+            val display = previewView.display ?: return
+            if (display.displayId == displayId && targetRotation != null && targetRotation != display.rotation) {
+                releaseCamera()
+                startCamera()
+            }
+        }
+    }
     private var exposureSteps = 0
     @Volatile private var scanRegion = LiveScanRegion.DEFAULT
     private lateinit var reticle: ScanReticleView
@@ -73,16 +104,10 @@ class LiveScanActivity : ComponentActivity() {
     private lateinit var togglePause: Button
     private lateinit var reviewContainer: LinearLayout
     private var profile = OfflineArabicOcr.Profile.AUTO
-    @Volatile private var active = false
-
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) startCamera()
-        else {
-            showStatus(getString(R.string.live_permission_denied))
-            rawOutput.text = "Camera not opened. Gallery Scan is still available on Home."
-        }
+        if (granted) startCamera() else showPermissionDenied()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,12 +125,12 @@ class LiveScanActivity : ComponentActivity() {
         if (savedInstanceState?.getBoolean("live_scan_full_image") == true) {
             scanRegion = LiveScanRegion.FULL_IMAGE
         }
+        permissionRequested = savedInstanceState?.getBoolean("live_permission_requested") == true
         buildInterface()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) !=
-            PackageManager.PERMISSION_GRANTED) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("live_permission_requested", permissionRequested)
         outState.putFloatArray("live_scan_region", scanRegion.coordinates())
         outState.putBoolean("live_scan_full_image", scanRegion.useFullImage)
         super.onSaveInstanceState(outState)
@@ -147,7 +172,7 @@ class LiveScanActivity : ComponentActivity() {
                         } else if (kotlin.math.abs(x - dragX) * width < dp(12) &&
                             kotlin.math.abs(y - dragY) * height < dp(12)) {
                             view.performClick()
-                            camera?.let { current ->
+                            camera?.takeIf { hasCameraPermission() }?.let { current ->
                                 val point = meteringPointFactory.createPoint(event.x, event.y)
                                 current.cameraControl.startFocusAndMetering(FocusMeteringAction.Builder(point).build())
                             }
@@ -163,10 +188,8 @@ class LiveScanActivity : ComponentActivity() {
         frame.addView(reticle, FrameLayout.LayoutParams(-1, -1))
         previewView.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
             if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) {
-                if (active || cameraStarting) releaseCamera()
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                    startCamera()
-                }
+                if (boundSession != null || openingSession != null) releaseCamera()
+                startCamera()
             }
         }
         root.addView(frame, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -196,7 +219,7 @@ class LiveScanActivity : ComponentActivity() {
             exposure.addView(Button(this).apply {
                 text = title; isAllCaps = false
                 setOnClickListener {
-                    val current = camera ?: return@setOnClickListener
+                    val current = camera?.takeIf { hasCameraPermission() } ?: return@setOnClickListener
                     val state = current.cameraInfo.exposureState
                     if (!state.isExposureCompensationSupported) {
                         showStatus(getString(R.string.live_exposure_unavailable))
@@ -254,122 +277,200 @@ class LiveScanActivity : ComponentActivity() {
         reticle.invalidate()
         reviewContainer.removeAllViews()
         rawOutput.setText(if (region.useFullImage) R.string.live_scan_full_image_selected else R.string.live_crop_updated)
-        gate.reset()
+        gate.resetInterval()
+    }
+
+    private fun hasCameraPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
+    private fun hasRearCamera(): Boolean = packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA)
+
+    private fun showPermissionDenied() {
+        releaseCamera()
+        status.setText(R.string.live_permission_denied)
+        rawOutput.setText(R.string.live_initial_guidance)
+        reviewContainer.removeAllViews()
     }
 
     private fun startCamera() {
-        if (isFinishing || isDestroyed || cameraStarting || active ||
-            !lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return
+        if (!resumed || isFinishing || isDestroyed || openingSession != null || boundSession != null) return
+        if (!hasRearCamera()) {
+            status.setText(R.string.live_camera_missing)
+            return
+        }
+        if (!hasCameraPermission()) {
+            showPermissionDenied()
+            return
+        }
         if (previewView.viewPort == null) return
-        cameraStarting = true
-        val openingSession = session
-        showStatus(getString(R.string.live_opening_camera))
-        val future = ProcessCameraProvider.getInstance(this)
-        future.addListener({
-            if (openingSession != session || isDestroyed) return@addListener
-            cameraStarting = false
-            if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return@addListener
-            try {
-                val viewport = previewView.viewPort ?: return@addListener
-                val rotation = previewView.display?.rotation ?: return@addListener
-                val provider = future.get()
-                cameraProvider = provider
-                val preview = Preview.Builder().setTargetRotation(rotation).build().apply {
-                    setSurfaceProvider(previewView.surfaceProvider)
+        targetRotation = previewView.display?.rotation ?: return
+        val session = gate.open()
+        openingSession = session
+        status.setText(R.string.live_opening_camera)
+        try {
+            val future = ProcessCameraProvider.getInstance(this)
+            future.addListener({
+                if (!gate.isCurrent(session) || isFinishing || isDestroyed) return@addListener
+                if (!hasCameraPermission()) {
+                    showPermissionDenied()
+                    return@addListener
                 }
-                val analysis = ImageAnalysis.Builder()
-                    .setTargetRotation(rotation)
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .setTargetResolution(android.util.Size(960, 720))
-                    .build().apply {
-                        setAnalyzer(analysisExecutor) { image -> analyze(image, openingSession) }
-                    }
-                val still = ImageCapture.Builder()
-                    .setTargetRotation(rotation)
-                    .setTargetResolution(android.util.Size(1500, 1125))
-                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                    .build()
-                provider.unbindAll()
-                // Some older cameras cannot provide three streams at once.
                 try {
-                    camera = provider.bindToLifecycle(
-                        this, CameraSelector.DEFAULT_BACK_CAMERA,
-                        UseCaseGroup.Builder().setViewPort(viewport)
-                            .addUseCase(preview).addUseCase(analysis).addUseCase(still).build()
-                    )
-                    imageCapture = still
+                    bindCamera(future.get(), session)
                 } catch (_: Exception) {
-                    provider.unbindAll()
-                    camera = provider.bindToLifecycle(
-                        this, CameraSelector.DEFAULT_BACK_CAMERA,
-                        UseCaseGroup.Builder().setViewPort(viewport)
-                            .addUseCase(preview).addUseCase(analysis).build()
-                    )
-                    imageCapture = null
+                    showCameraFailure()
                 }
-                active = true
-                showStatus(getString(R.string.live_crop_hint))
-            } catch (e: Exception) {
-                active = false
-                showStatus("CameraX unavailable on this device: ${e.message ?: "unknown error"}")
-            }
-        }, ContextCompat.getMainExecutor(this))
+            }, ContextCompat.getMainExecutor(this))
+        } catch (_: Exception) {
+            showCameraFailure()
+        }
     }
 
-    /** CameraX calls this on one background executor. ImageProxy is ALWAYS closed. */
-    private fun analyze(image: ImageProxy, scanSession: Int) {
-        var bitmap: Bitmap? = null
+    private fun bindCamera(provider: ProcessCameraProvider, session: CameraSessionGate.Session) {
+        val viewport = checkNotNull(previewView.viewPort)
+        val rotation = checkNotNull(targetRotation)
+        val selector = CameraSelector.DEFAULT_BACK_CAMERA
+        if (!provider.hasCamera(selector)) {
+            releaseCamera()
+            status.setText(R.string.live_camera_missing)
+            return
+        }
+        cameraProvider = provider
+        val preview = Preview.Builder().setTargetRotation(rotation).build().apply {
+            setSurfaceProvider(previewView.surfaceProvider)
+        }
+        val analysis = ImageAnalysis.Builder()
+            .setTargetRotation(rotation)
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setTargetResolution(android.util.Size(960, 720))
+            .build()
+        val still = ImageCapture.Builder()
+            .setTargetRotation(rotation)
+            .setTargetResolution(android.util.Size(1500, 1125))
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+        fun bind(vararg useCases: UseCase): Camera {
+            boundUseCases = arrayOf(*useCases)
+            val group = UseCaseGroup.Builder().setViewPort(viewport)
+            useCases.forEach { group.addUseCase(it) }
+            return provider.bindToLifecycle(this, selector, group.build())
+        }
+        val current = try {
+            bind(preview, analysis, still).also { imageCapture = still }
+        } catch (_: IllegalArgumentException) {
+            // Some older cameras cannot provide three streams at once.
+            provider.unbind(*boundUseCases)
+            bind(preview, analysis)
+        }
+        camera = current
+        boundSession = session
+        openingSession = null
+        current.cameraInfo.cameraState.observe(this) { state ->
+            if (!gate.isCurrent(session)) return@observe
+            if (!hasCameraPermission()) {
+                showPermissionDenied()
+            } else if (state.error != null) {
+                cameraFailed = true
+                status.setText(R.string.live_camera_retry)
+            } else if (state.type == CameraState.Type.OPEN) {
+                cameraFailed = false
+                status.setText(R.string.live_crop_hint)
+            }
+        }
+        if (gate.isCurrent(session)) {
+            analysis.setAnalyzer(cameraCallbacks) { image -> analyze(image, session) }
+        }
+    }
+
+    private fun showCameraFailure() {
+        if (!hasCameraPermission()) {
+            showPermissionDenied()
+        } else {
+            releaseCamera()
+            status.setText(R.string.live_camera_retry)
+        }
+    }
+
+    private fun analyze(image: ImageProxy, session: CameraSessionGate.Session) {
         val region = scanRegion
-        try {
-            if (!active || scanSession != session || processing.get()) return
-            val manual = manuallyRequested.getAndSet(false)
-            if (paused.get() && !manual) return
-            if (!gate.shouldScan(SystemClock.elapsedRealtime(), manual)) return
-            if (!processing.compareAndSet(false, true)) return
-            bitmap = toUprightBitmap(image, region)
+        var scan: CameraSessionGate.Scan? = null
+        val bitmap = try {
+            if (!gate.isCurrent(session) || !hasCameraPermission()) return
+            scan = gate.claimFrame(session, SystemClock.elapsedRealtime(), paused.get()) ?: return
+            toUprightBitmap(image, region)
         } catch (e: Exception) {
-            processing.set(false)
-            postStatus("Frame conversion failed: ${e.message ?: "unknown"}")
+            scan?.let { gate.finish(it) }
+            postStatus("Frame conversion failed: ${e.message ?: "unknown"}", session, region)
+            return
         } finally {
-            // Important: return camera buffer before running slow Tesseract OCR.
             image.close()
         }
-        if (bitmap != null) recognizeOffline(bitmap, scanSession, region)
+        scan?.let { recognizeOffline(bitmap, it, region) }
     }
 
-    /** Capture a real CameraX still, or request the next live frame as a fallback. */
     private fun capturePhotoOrNextFrame() {
-        if (!active) { showStatus(getString(R.string.live_not_ready)); return }
-        if (!processing.compareAndSet(false, true)) { showStatus(getString(R.string.live_previous_scan_running)); return }
-        val captureSession = session
+        if (!resumed) return
+        if (!hasRearCamera()) {
+            status.setText(R.string.live_camera_missing)
+            return
+        }
+        if (!hasCameraPermission()) {
+            showPermissionDenied()
+            if (permissionRequested && !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
+            } else {
+                permissionRequested = true
+                permissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+            return
+        }
+        val session = boundSession
+        if (session == null || cameraFailed) {
+            if (cameraFailed) releaseCamera()
+            startCamera()
+            return
+        }
         val region = scanRegion
         val still = imageCapture
         if (still == null) {
-            manuallyRequested.set(true)
-            processing.set(false)
-            showStatus(getString(R.string.live_frame_fallback))
+            status.setText(if (gate.requestNextFrame(session)) R.string.live_frame_fallback
+                else R.string.live_previous_scan_running)
             return
         }
-        // The atomic claim above excludes the analyzer while capturing.
-        showStatus(getString(R.string.live_capturing))
-        still.takePicture(analysisExecutor, object : ImageCapture.OnImageCapturedCallback() {
-            override fun onCaptureSuccess(image: ImageProxy) {
-                var upright: Bitmap? = null
-                try {
-                    if (!active || captureSession != session) { processing.set(false); return }
-                    upright = toUprightBitmap(image, region)
-                } catch (e: Exception) {
-                    postStatus("Capture failed safely: ${e.message ?: "unknown"}")
-                    processing.set(false)
-                } finally { image.close() }
-                upright?.let { recognizeOffline(it, captureSession, region) }
-            }
+        val scan = gate.claimStill(session, SystemClock.elapsedRealtime())
+        if (scan == null) {
+            status.setText(R.string.live_previous_scan_running)
+            return
+        }
+        status.setText(R.string.live_capturing)
+        try {
+            still.takePicture(cameraCallbacks, object : ImageCapture.OnImageCapturedCallback() {
+                override fun onCaptureSuccess(image: ImageProxy) {
+                    val upright = try {
+                        if (!isCurrentScan(scan, region)) {
+                            gate.finish(scan)
+                            return
+                        }
+                        toUprightBitmap(image, region)
+                    } catch (e: Exception) {
+                        gate.finish(scan)
+                        postStatus("Capture failed safely: ${e.message ?: "unknown"}", session, region)
+                        return
+                    } finally {
+                        image.close()
+                    }
+                    recognizeOffline(upright, scan, region)
+                }
 
-            override fun onError(exception: ImageCaptureException) {
-                processing.set(false)
-                postStatus("Camera capture error: ${exception.message ?: "unknown"}")
-            }
-        })
+                override fun onError(exception: ImageCaptureException) {
+                    gate.finish(scan)
+                    postStatus("Camera capture error: ${exception.message ?: "unknown"}", session, region)
+                }
+            })
+        } catch (_: Exception) {
+            gate.finish(scan)
+            showCameraFailure()
+        }
     }
 
     private fun toggleAutomaticScan() {
@@ -377,7 +478,7 @@ class LiveScanActivity : ComponentActivity() {
         paused.set(nowPaused)
         getSharedPreferences("quran_reader_settings", MODE_PRIVATE).edit().putBoolean("auto_scan_paused", nowPaused).apply()
         togglePause.text = if (nowPaused) getString(R.string.live_resume_auto) else getString(R.string.live_pause_auto)
-        if (!nowPaused) gate.reset()
+        if (!nowPaused) gate.resetInterval()
         showStatus(if (nowPaused) getString(R.string.live_auto_paused_notice)
             else getString(R.string.live_auto_resumed_notice))
     }
@@ -400,13 +501,13 @@ class LiveScanActivity : ComponentActivity() {
             require(image.width.toLong() * image.height <= 4_000_000L) { "Analysis frame is too large" }
             image.toBitmap()
         }
-        val angle = image.imageInfo.rotationDegrees
-        val viewport = image.cropRect
         val upright = try {
-            val bounds = requireNotNull(region.bitmapBounds(
+            val angle = image.imageInfo.rotationDegrees
+            val viewport = image.cropRect
+            val bounds = region.bitmapBounds(
                 CropBounds(viewport.left, viewport.top, viewport.right, viewport.bottom),
                 angle, image.width, image.height, original.width, original.height
-            )) { "The selected camera area is too small or unavailable" }
+            ) ?: CropBounds(0, 0, original.width, original.height)
             Bitmap.createBitmap(
                 original, bounds.left, bounds.top, bounds.width, bounds.height,
                 Matrix().apply { postRotate(angle.toFloat()) }, true
@@ -416,29 +517,35 @@ class LiveScanActivity : ComponentActivity() {
             throw error
         }
         if (upright !== original) original.recycle()
-        // Limit OCR memory/CPU, especially on low-end phones and high-res captures.
         val max = maxOf(upright.width, upright.height)
         if (max <= 1500) return upright
         val factor = 1500f / max
-        val resized = Bitmap.createScaledBitmap(
-            upright, (upright.width * factor).toInt().coerceAtLeast(1),
-            (upright.height * factor).toInt().coerceAtLeast(1), true
-        )
-        if (resized !== upright) upright.recycle()
-        return resized
+        var resized: Bitmap? = null
+        try {
+            return Bitmap.createScaledBitmap(
+                upright, (upright.width * factor).toInt().coerceAtLeast(1),
+                (upright.height * factor).toInt().coerceAtLeast(1), true
+            ).also { resized = it }
+        } finally {
+            if (resized !== upright) upright.recycle()
+        }
     }
 
-    private fun recognizeOffline(bitmap: Bitmap, scanSession: Int, region: LiveScanRegion) {
+    private fun isCurrentScan(scan: CameraSessionGate.Scan, region: LiveScanRegion): Boolean =
+        gate.isCurrent(scan.session) && scanRegion === region && hasCameraPermission()
+
+    private fun recognizeOffline(bitmap: Bitmap, claim: CameraSessionGate.Scan, region: LiveScanRegion) {
         try {
-            if (!active || scanSession != session || scanRegion !== region) return
-            postStatus(getString(R.string.live_processing))
+            if (!isCurrentScan(claim, region)) return
+            postStatus(getString(R.string.live_processing), claim.session, region)
             val scan = OfflineArabicOcr(applicationContext).read(bitmap, profile)
+            if (!isCurrentScan(claim, region)) return
             val corpus = OfflineCorpus(applicationContext)
             val complete = corpus.isComplete()
             val candidates = if (complete)
                 VerseCandidates.suggest(scan.rawUnverifiedText, corpus.asMap()) else emptyList()
             runOnUiThread {
-                if (!active || scanSession != session || scanRegion !== region || isFinishing || isDestroyed) return@runOnUiThread
+                if (!isCurrentScan(claim, region) || isFinishing || isDestroyed) return@runOnUiThread
                 reviewContainer.removeAllViews()
                 if (complete && candidates.isNotEmpty()) {
                     candidates.take(3).forEach { candidate ->
@@ -476,47 +583,62 @@ class LiveScanActivity : ComponentActivity() {
                 showStatus(listOfNotNull(summary, scan.quality.guidance(this)).joinToString("\n"))
             }
         } catch (e: Exception) {
-            postStatus("OCR failed safely: ${e.message ?: "unknown"}")
+            postStatus("OCR failed safely: ${e.message ?: "unknown"}", claim.session, region)
         } finally {
             bitmap.recycle()
-            processing.set(false)
+            gate.finish(claim)
         }
     }
 
-    private fun postStatus(msg: String) = runOnUiThread {
-        if (active && !isFinishing && !isDestroyed) showStatus(msg)
+    private fun postStatus(msg: String, session: CameraSessionGate.Session, region: LiveScanRegion) = runOnUiThread {
+        if (gate.isCurrent(session) && scanRegion === region && !isFinishing && !isDestroyed && hasCameraPermission()) {
+            showStatus(msg)
+        }
     }
     private fun showStatus(msg: String) { status.text = msg }
     private fun dp(v: Int) = (v * resources.displayMetrics.density + 0.5f).toInt()
 
     private fun releaseCamera() {
-        active = false
-        session++
-        cameraStarting = false
-        manuallyRequested.set(false)
-        imageCapture = null
+        gate.invalidate()
+        openingSession = null
+        boundSession = null
+        targetRotation = null
+        cameraFailed = false
+        camera?.cameraInfo?.cameraState?.removeObservers(this)
         camera = null
-        cameraProvider?.unbindAll()
+        imageCapture = null
+        boundUseCases.filterIsInstance<ImageAnalysis>().forEach { it.clearAnalyzer() }
+        if (boundUseCases.isNotEmpty()) cameraProvider?.unbind(*boundUseCases)
+        boundUseCases = emptyArray()
+        cameraProvider = null
     }
 
-    override fun onStop() {
-        releaseCamera()
-        super.onStop()
-    }
-
-    override fun onStart() {
-        super.onStart()
-        gate.reset()
-        // Lifecycle ON_START can be dispatched after onStart returns.
+    override fun onResume() {
+        super.onResume()
+        resumed = true
+        displayManager?.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
+        // Allow lifecycle dispatch and layout to complete before binding.
         previewView.post {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) startCamera()
+            if (!resumed || isFinishing || isDestroyed) return@post
+            if (hasRearCamera() && !hasCameraPermission() && !permissionRequested) {
+                permissionRequested = true
+                permissionLauncher.launch(Manifest.permission.CAMERA)
+            } else {
+                startCamera()
+            }
         }
     }
 
+    override fun onPause() {
+        resumed = false
+        displayManager?.unregisterDisplayListener(displayListener)
+        releaseCamera()
+        super.onPause()
+    }
+
     override fun onDestroy() {
-        active = false
-        cameraProvider?.unbindAll()
-        analysisExecutor.shutdownNow()
+        releaseCamera()
+        analysisExecutor.shutdown()
         super.onDestroy()
     }
 }

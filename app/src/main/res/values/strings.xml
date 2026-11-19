@@ -113,6 +113,8 @@
     <string name="gallery_no_candidate">No reliable verse candidate. Compare the text with your printed page.</string>
     <string name="gallery_possible_matches">Possible references. Compare them with your printed page.</string>
     <string name="scan_review_candidate">Review %1$d:%2$d and confirm manually</string>
+    <string name="live_camera_missing">This device has no rear camera. Use Gallery Scan from Home.</string>
+    <string name="live_camera_retry">Camera unavailable. Tap Scan Photo to retry or use Gallery Scan from Home.</string>
     <string name="live_permission_denied">Camera permission is required for live scanning.</string>
     <string name="live_exposure_unavailable">Exposure adjustment is unavailable on this camera.</string>
     <string name="live_opening_camera">Opening camera for offline scanning…</string>

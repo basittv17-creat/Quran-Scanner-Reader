@@ -115,6 +115,8 @@
     <string name="gallery_no_candidate">کوئی قابل اعتماد آیت نہیں ملی۔ متن کو مطبوعہ صفحے سے ملائیں۔</string>
     <string name="gallery_possible_matches">ممکنہ حوالے۔ انہیں مطبوعہ صفحے سے ملائیں۔</string>
     <string name="scan_review_candidate">%1$d:%2$d کا موازنہ کر کے تصدیق کریں</string>
+    <string name="live_camera_missing">اس آلے میں پچھلا کیمرہ نہیں ہے۔ ہوم سے گیلری اسکین استعمال کریں۔</string>
+    <string name="live_camera_retry">کیمرہ دستیاب نہیں۔ دوبارہ کوشش کے لیے تصویر اسکین کریں یا ہوم سے گیلری اسکین استعمال کریں۔</string>
     <string name="live_permission_denied">براہ راست اسکین کے لیے کیمرے کی اجازت درکار ہے۔</string>
     <string name="live_exposure_unavailable">اس کیمرے میں روشنی کی سطح بدلنے کی سہولت دستیاب نہیں۔</string>
     <string name="live_opening_camera">آف لائن اسکین کے لیے کیمرہ کھل رہا ہے…</string>
