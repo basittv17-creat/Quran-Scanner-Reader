@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="live_crop_hint">کیمرے کا منظر۔ فوکس کے لیے تھپتھپائیں یا اسکین کا حصہ منتخب کرنے کے لیے صفحے پر انگلی کھینچیں۔</string>
+    <string name="live_crop_reset">اسکین کا حصہ بحال کریں</string>
+    <string name="live_crop_updated">اسکین کا حصہ بدل گیا۔ تصویر اسکین کریں یا خودکار اسکین کا انتظار کریں۔</string>
+</resources>

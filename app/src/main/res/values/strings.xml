@@ -17,4 +17,7 @@
 %1$s</string>
     <string name="remove_pack">حذف کریں</string>
     <string name="import_busy">درآمد اور جانچ جاری ہے۔ مکمل ہونے تک تلاوت اور آیت کا انتخاب رکا ہوا ہے۔</string>
+    <string name="live_crop_hint">Camera preview. Tap to focus or drag across the page to select a scan area.</string>
+    <string name="live_crop_reset">Reset scan area</string>
+    <string name="live_crop_updated">Scan area updated. Scan a photo or wait for automatic scanning.</string>
 </resources>

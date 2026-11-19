@@ -27,10 +27,13 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import org.quranscan.reader.core.CropBounds
+import org.quranscan.reader.core.LiveScanRegion
 import org.quranscan.reader.core.ImageDecodeLimits
 import org.quranscan.reader.core.CameraScanGate
 import org.quranscan.reader.core.OfflineCorpus
@@ -60,6 +63,10 @@ class LiveScanActivity : ComponentActivity() {
     private var cameraStarting = false
     @Volatile private var session = 0
     private var exposureSteps = 0
+    @Volatile private var scanRegion = LiveScanRegion.DEFAULT
+    private lateinit var reticle: ScanReticleView
+    private var dragX = 0f
+    private var dragY = 0f
     private lateinit var previewView: PreviewView
     private lateinit var status: TextView
     private lateinit var rawOutput: TextView
@@ -87,9 +94,17 @@ class LiveScanActivity : ComponentActivity() {
             )
         }.getOrDefault(OfflineArabicOcr.Profile.AUTO)
         paused.set(getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getBoolean("auto_scan_paused", false))
+        savedInstanceState?.getFloatArray("live_scan_region")?.takeIf { it.size == 4 }?.let {
+            scanRegion = LiveScanRegion.selection(it[0], it[1], it[2], it[3]) ?: LiveScanRegion.DEFAULT
+        }
         buildInterface()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) !=
             PackageManager.PERMISSION_GRANTED) permissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putFloatArray("live_scan_region", scanRegion.coordinates())
+        super.onSaveInstanceState(outState)
     }
 
     private fun buildInterface() {
@@ -110,14 +125,29 @@ class LiveScanActivity : ComponentActivity() {
         root.addView(title)
         previewView = PreviewView(this).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-            scaleType = PreviewView.ScaleType.FIT_CENTER
-            contentDescription = "Camera preview. Tap the page to focus and meter exposure."
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+            contentDescription = getString(R.string.live_crop_hint)
             setOnTouchListener { view, event ->
-                if (event.action == MotionEvent.ACTION_UP) {
-                    view.performClick()
-                    camera?.let { current ->
-                        val point = meteringPointFactory.createPoint(event.x, event.y)
-                        current.cameraControl.startFocusAndMetering(FocusMeteringAction.Builder(point).build())
+                if (width <= 0 || height <= 0) return@setOnTouchListener false
+                val x = (event.x / width).coerceIn(0f, 1f)
+                val y = (event.y / height).coerceIn(0f, 1f)
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        dragX = x
+                        dragY = y
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        val region = LiveScanRegion.selection(dragX, dragY, x, y)
+                        if (region != null) {
+                            setScanRegion(region)
+                        } else if (kotlin.math.abs(x - dragX) * width < dp(12) &&
+                            kotlin.math.abs(y - dragY) * height < dp(12)) {
+                            view.performClick()
+                            camera?.let { current ->
+                                val point = meteringPointFactory.createPoint(event.x, event.y)
+                                current.cameraControl.startFocusAndMetering(FocusMeteringAction.Builder(point).build())
+                            }
+                        }
                     }
                 }
                 true
@@ -125,8 +155,16 @@ class LiveScanActivity : ComponentActivity() {
         }
         val frame = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         frame.addView(previewView, FrameLayout.LayoutParams(-1, -1))
-        // Noninteractive decorative frame; no coordinates are treated as OCR certainty.
-        frame.addView(ScanReticleView(this), FrameLayout.LayoutParams(-1, -1))
+        reticle = ScanReticleView(this).apply { region = scanRegion }
+        frame.addView(reticle, FrameLayout.LayoutParams(-1, -1))
+        previewView.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+            if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) {
+                if (active || cameraStarting) releaseCamera()
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    startCamera()
+                }
+            }
+        }
         root.addView(frame, LinearLayout.LayoutParams(-1, 0, 1f))
         status = TextView(this).apply {
             textSize = 13f
@@ -168,6 +206,11 @@ class LiveScanActivity : ComponentActivity() {
         }
         exposureButton("Darker", -1)
         exposureButton("Brighter", 1)
+        exposure.addView(Button(this).apply {
+            setText(R.string.live_crop_reset)
+            isAllCaps = false
+            setOnClickListener { setScanRegion(LiveScanRegion.DEFAULT) }
+        }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(exposure)
         rawOutput = TextView(this).apply {
             text = "Point the camera at a well-lit Quran page. Text below is unverified OCR. " +
@@ -196,9 +239,19 @@ class LiveScanActivity : ComponentActivity() {
         root.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
     }
 
+    private fun setScanRegion(region: LiveScanRegion) {
+        scanRegion = region
+        reticle.region = region
+        reticle.invalidate()
+        reviewContainer.removeAllViews()
+        rawOutput.setText(R.string.live_crop_updated)
+        gate.reset()
+    }
+
     private fun startCamera() {
         if (isFinishing || isDestroyed || cameraStarting || active ||
             !lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return
+        if (previewView.viewPort == null) return
         cameraStarting = true
         val openingSession = session
         showStatus("Opening CameraX… No internet access is required.")
@@ -208,18 +261,22 @@ class LiveScanActivity : ComponentActivity() {
             cameraStarting = false
             if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return@addListener
             try {
+                val viewport = previewView.viewPort ?: return@addListener
+                val rotation = previewView.display?.rotation ?: return@addListener
                 val provider = future.get()
                 cameraProvider = provider
-                val preview = Preview.Builder().build().apply {
+                val preview = Preview.Builder().setTargetRotation(rotation).build().apply {
                     setSurfaceProvider(previewView.surfaceProvider)
                 }
                 val analysis = ImageAnalysis.Builder()
+                    .setTargetRotation(rotation)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .setTargetResolution(android.util.Size(960, 720))
                     .build().apply {
-                        setAnalyzer(analysisExecutor) { image -> analyze(image) }
+                        setAnalyzer(analysisExecutor) { image -> analyze(image, openingSession) }
                     }
                 val still = ImageCapture.Builder()
+                    .setTargetRotation(rotation)
                     .setTargetResolution(android.util.Size(1500, 1125))
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .build()
@@ -227,19 +284,22 @@ class LiveScanActivity : ComponentActivity() {
                 // Some older cameras cannot provide three streams at once.
                 try {
                     camera = provider.bindToLifecycle(
-                        this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis, still
+                        this, CameraSelector.DEFAULT_BACK_CAMERA,
+                        UseCaseGroup.Builder().setViewPort(viewport)
+                            .addUseCase(preview).addUseCase(analysis).addUseCase(still).build()
                     )
                     imageCapture = still
                 } catch (_: Exception) {
                     provider.unbindAll()
                     camera = provider.bindToLifecycle(
-                        this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis
+                        this, CameraSelector.DEFAULT_BACK_CAMERA,
+                        UseCaseGroup.Builder().setViewPort(viewport)
+                            .addUseCase(preview).addUseCase(analysis).build()
                     )
                     imageCapture = null
                 }
                 active = true
-                showStatus("Live camera ready. Auto OCR samples one frame about every 4.5 seconds. " +
-                    "Profile: $profile (generic Arabic model).")
+                showStatus(getString(R.string.live_crop_hint))
             } catch (e: Exception) {
                 active = false
                 showStatus("CameraX unavailable on this device: ${e.message ?: "unknown error"}")
@@ -248,16 +308,16 @@ class LiveScanActivity : ComponentActivity() {
     }
 
     /** CameraX calls this on one background executor. ImageProxy is ALWAYS closed. */
-    private fun analyze(image: ImageProxy) {
+    private fun analyze(image: ImageProxy, scanSession: Int) {
         var bitmap: Bitmap? = null
-        val scanSession = session
+        val region = scanRegion
         try {
-            if (!active || processing.get()) return
+            if (!active || scanSession != session || processing.get()) return
             val manual = manuallyRequested.getAndSet(false)
             if (paused.get() && !manual) return
             if (!gate.shouldScan(SystemClock.elapsedRealtime(), manual)) return
             if (!processing.compareAndSet(false, true)) return
-            bitmap = toUprightBitmap(image)
+            bitmap = toUprightBitmap(image, region)
         } catch (e: Exception) {
             processing.set(false)
             postStatus("Frame conversion failed: ${e.message ?: "unknown"}")
@@ -265,7 +325,7 @@ class LiveScanActivity : ComponentActivity() {
             // Important: return camera buffer before running slow Tesseract OCR.
             image.close()
         }
-        if (bitmap != null) recognizeOffline(bitmap, scanSession)
+        if (bitmap != null) recognizeOffline(bitmap, scanSession, region)
     }
 
     /** Capture a real CameraX still, or request the next live frame as a fallback. */
@@ -273,6 +333,7 @@ class LiveScanActivity : ComponentActivity() {
         if (!active) { showStatus("The camera is not ready."); return }
         if (!processing.compareAndSet(false, true)) { showStatus("Previous scan is still running. Try again."); return }
         val captureSession = session
+        val region = scanRegion
         val still = imageCapture
         if (still == null) {
             manuallyRequested.set(true)
@@ -287,12 +348,12 @@ class LiveScanActivity : ComponentActivity() {
                 var upright: Bitmap? = null
                 try {
                     if (!active || captureSession != session) { processing.set(false); return }
-                    upright = toUprightBitmap(image)
+                    upright = toUprightBitmap(image, region)
                 } catch (e: Exception) {
                     postStatus("Capture failed safely: ${e.message ?: "unknown"}")
                     processing.set(false)
                 } finally { image.close() }
-                upright?.let { recognizeOffline(it, captureSession) }
+                upright?.let { recognizeOffline(it, captureSession, region) }
             }
 
             override fun onError(exception: ImageCaptureException) {
@@ -312,7 +373,7 @@ class LiveScanActivity : ComponentActivity() {
             else "Automatic scanning resumed. Text remains unverified.")
     }
 
-    private fun toUprightBitmap(image: ImageProxy): Bitmap {
+    private fun toUprightBitmap(image: ImageProxy, region: LiveScanRegion): Bitmap {
         val original = if (image.format == ImageFormat.JPEG) {
             // Still-capture resolution requests are hints. Read JPEG bounds before pixel allocation.
             val buffer = image.planes[0].buffer.duplicate()
@@ -331,14 +392,21 @@ class LiveScanActivity : ComponentActivity() {
             image.toBitmap()
         }
         val angle = image.imageInfo.rotationDegrees
-        val upright = if (angle == 0) original else {
-            val rotated = Bitmap.createBitmap(
-                original, 0, 0, original.width, original.height,
+        val viewport = image.cropRect
+        val upright = try {
+            val bounds = requireNotNull(region.bitmapBounds(
+                CropBounds(viewport.left, viewport.top, viewport.right, viewport.bottom),
+                angle, image.width, image.height, original.width, original.height
+            )) { "The selected camera area is too small or unavailable" }
+            Bitmap.createBitmap(
+                original, bounds.left, bounds.top, bounds.width, bounds.height,
                 Matrix().apply { postRotate(angle.toFloat()) }, true
             )
-            if (rotated !== original) original.recycle()
-            rotated
+        } catch (error: Exception) {
+            original.recycle()
+            throw error
         }
+        if (upright !== original) original.recycle()
         // Limit OCR memory/CPU, especially on low-end phones and high-res captures.
         val max = maxOf(upright.width, upright.height)
         if (max <= 1500) return upright
@@ -351,9 +419,9 @@ class LiveScanActivity : ComponentActivity() {
         return resized
     }
 
-    private fun recognizeOffline(bitmap: Bitmap, scanSession: Int) {
+    private fun recognizeOffline(bitmap: Bitmap, scanSession: Int, region: LiveScanRegion) {
         try {
-            if (!active || scanSession != session) return
+            if (!active || scanSession != session || scanRegion !== region) return
             postStatus("Processing Arabic OCR completely offline…")
             val scan = OfflineArabicOcr(applicationContext).read(bitmap, profile)
             val corpus = OfflineCorpus(applicationContext)
@@ -361,7 +429,7 @@ class LiveScanActivity : ComponentActivity() {
             val candidates = if (complete)
                 VerseCandidates.suggest(scan.rawUnverifiedText, corpus.asMap()) else emptyList()
             runOnUiThread {
-                if (!active || scanSession != session || isFinishing || isDestroyed) return@runOnUiThread
+                if (!active || scanSession != session || scanRegion !== region || isFinishing || isDestroyed) return@runOnUiThread
                 reviewContainer.removeAllViews()
                 if (complete && candidates.isNotEmpty()) {
                     candidates.take(3).forEach { candidate ->
@@ -408,7 +476,7 @@ class LiveScanActivity : ComponentActivity() {
     private fun showStatus(msg: String) { status.text = msg }
     private fun dp(v: Int) = (v * resources.displayMetrics.density + 0.5f).toInt()
 
-    override fun onStop() {
+    private fun releaseCamera() {
         active = false
         session++
         cameraStarting = false
@@ -416,6 +484,10 @@ class LiveScanActivity : ComponentActivity() {
         imageCapture = null
         camera = null
         cameraProvider?.unbindAll()
+    }
+
+    override fun onStop() {
+        releaseCamera()
         super.onStop()
     }
 
