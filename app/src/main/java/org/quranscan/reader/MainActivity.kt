@@ -238,17 +238,17 @@ class MainActivity : Activity() {
     }
 
     private fun openGalleryImage(uri: Uri, selection: CropBounds? = null) {
-        screen("Opening selected image")
+        screen(getString(R.string.gallery_opening))
         galleryUri = uri
         gallerySelection = selection
         val token = scanToken
-        label("Preparing image offline…", 16)
+        label(getString(R.string.gallery_preparing), 16)
         worker.execute {
             val bitmap = decodePreview(uri)
             runOnUiThread {
                 if (token != scanToken || isFinishing || isDestroyed) { bitmap?.recycle(); return@runOnUiThread }
                 if (bitmap == null) {
-                    message("Unable to open the image. Select a readable local picture and try again.")
+                    message(getString(R.string.gallery_open_error))
                     home()
                 } else previewGalleryCrop(uri, bitmap, selection)
             }
@@ -296,20 +296,20 @@ class MainActivity : Activity() {
     }
 
     private fun previewGalleryCrop(uri: Uri, bitmap: Bitmap, selection: CropBounds?) {
-        screen("Select Quran text", scrollable = false)
+        screen(getString(R.string.gallery_select_text), scrollable = false)
         galleryUri = uri
         galleryBitmap = bitmap
-        label("Drag a rectangle around the text, then scan the selection. Full image scanning is also available.", 15)
+        label(getString(R.string.gallery_crop_help), 15)
         val crop = GalleryCropView(this).apply { setImage(bitmap, selection) }
         galleryCrop = crop
         root.addView(crop, LinearLayout.LayoutParams(-1, 0, 1f))
-        action("Scan selected area") {
+        action(getString(R.string.gallery_scan_crop)) {
             val selected = runCatching { crop.croppedBitmap() }.getOrNull()
-            if (selected == null) message("Unable to crop image. Try scanning the full image.")
+            if (selected == null) message(getString(R.string.gallery_crop_error))
             else startGalleryScan(uri, selected, crop.selectedBounds())
         }
-        action("Scan full image") { startGalleryScan(uri, bitmap, CropBounds(0, 0, bitmap.width, bitmap.height)) }
-        action("Cancel") { home() }
+        action(getString(R.string.gallery_scan_full)) { startGalleryScan(uri, bitmap, CropBounds(0, 0, bitmap.width, bitmap.height)) }
+        action(getString(R.string.gallery_cancel)) { home() }
     }
 
     private fun releaseGalleryPreview() {
@@ -325,11 +325,11 @@ class MainActivity : Activity() {
     }
 
     private fun scan(uri: Uri, bitmap: Bitmap, selection: CropBounds) {
-        screen("Offline Arabic OCR")
+        screen(getString(R.string.gallery_offline_ocr))
         galleryUri = uri
         gallerySelection = selection
         val token = scanToken
-        label("اسکین جاری ہے — شناخت شدہ متن ابھی غیر مصدقہ ہے", 17, gold, true)
+        label(getString(R.string.gallery_ocr_in_progress), 17, gold, true)
         label("Profile: $profile   •   All processing happens on your phone", 13)
         val scanImage = ImageView(this).apply {
             setImageBitmap(bitmap)
@@ -357,9 +357,9 @@ class MainActivity : Activity() {
                 root.removeView(progress)
                 response.onSuccess { (ocr, candidates, complete) ->
                     if (ocr.rawUnverifiedText.isBlank()) {
-                        label("No Arabic text detected. Try sharper lighting and a closer image.", 15)
+                        label(getString(R.string.gallery_no_arabic), 15)
                     } else {
-                        label("⚠ UNVERIFIED OCR — may contain letter and diacritic errors", 15, gold)
+                        label(getString(R.string.gallery_ocr_unverified), 15, gold)
                         val raw = TextView(this).apply {
                             text = ocr.rawUnverifiedText.take(2000)
                             textSize = 21f
@@ -371,13 +371,13 @@ class MainActivity : Activity() {
                         }
                         root.addView(raw, LinearLayout.LayoutParams(-1, -2))
                     }
-                    if (!complete) label("Quran reference data not installed — NO verse was verified. Recitation disabled.", 14, gold)
-                    else if (candidates.isEmpty()) label("No sufficiently strong candidate. Do not use raw OCR as Quran text.", 14)
+                    if (!complete) label(getString(R.string.gallery_no_corpus), 14, gold)
+                    else if (candidates.isEmpty()) label(getString(R.string.gallery_no_candidate), 14)
                     else {
-                        label("Potential references ONLY (not verified). Compare visually:", 14, gold)
+                        label(getString(R.string.gallery_possible_matches), 14, gold)
                         candidates.forEach { c ->
                             label("${c.id.surah}:${c.id.ayah} — ${c.canonicalArabic}", 17, gold, true)
-                            action("Review ${c.id.surah}:${c.id.ayah} · do not auto-play") { recitation(c.id.surah, c.id.ayah, ocr.rawUnverifiedText) }
+                            action(getString(R.string.scan_review_candidate, c.id.surah, c.id.ayah)) { recitation(c.id.surah, c.id.ayah, ocr.rawUnverifiedText) }
                         }
                     }
                     label(getString(R.string.scan_processing_summary, ocr.variantsChecked, ocr.elapsedMs), 12)

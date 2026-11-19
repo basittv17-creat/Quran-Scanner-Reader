@@ -80,7 +80,7 @@ class LiveScanActivity : ComponentActivity() {
     ) { granted ->
         if (granted) startCamera()
         else {
-            showStatus("Camera permission declined. Allow camera permission to use Live Scan.")
+            showStatus(getString(R.string.live_permission_denied))
             rawOutput.text = "Camera not opened. Gallery Scan is still available on Home."
         }
     }
@@ -199,12 +199,12 @@ class LiveScanActivity : ComponentActivity() {
                     val current = camera ?: return@setOnClickListener
                     val state = current.cameraInfo.exposureState
                     if (!state.isExposureCompensationSupported) {
-                        showStatus("Exposure adjustment is unavailable on this camera.")
+                        showStatus(getString(R.string.live_exposure_unavailable))
                     } else {
                         exposureSteps = (state.exposureCompensationIndex + delta).coerceIn(
                             state.exposureCompensationRange.lower, state.exposureCompensationRange.upper)
                         current.cameraControl.setExposureCompensationIndex(exposureSteps)
-                        showStatus("Exposure step: $exposureSteps. Tap the page to focus.")
+                        showStatus(getString(R.string.live_exposure_step, exposureSteps))
                     }
                 }
             }, LinearLayout.LayoutParams(0, -2, 1f))
@@ -223,8 +223,7 @@ class LiveScanActivity : ComponentActivity() {
             setOnClickListener { setScanRegion(LiveScanRegion.FULL_IMAGE) }
         }, LinearLayout.LayoutParams(-1, -2))
         rawOutput = TextView(this).apply {
-            text = "Point the camera at a well-lit Quran page. Text below is unverified OCR. " +
-                "No recitation will play until a trusted Quran corpus and verified audio are installed."
+            text = getString(R.string.live_initial_guidance)
             textDirection = View.TEXT_DIRECTION_RTL
             gravity = Gravity.START
                             layoutDirection = View.LAYOUT_DIRECTION_RTL
@@ -264,7 +263,7 @@ class LiveScanActivity : ComponentActivity() {
         if (previewView.viewPort == null) return
         cameraStarting = true
         val openingSession = session
-        showStatus("Opening CameraX… No internet access is required.")
+        showStatus(getString(R.string.live_opening_camera))
         val future = ProcessCameraProvider.getInstance(this)
         future.addListener({
             if (openingSession != session || isDestroyed) return@addListener
@@ -340,19 +339,19 @@ class LiveScanActivity : ComponentActivity() {
 
     /** Capture a real CameraX still, or request the next live frame as a fallback. */
     private fun capturePhotoOrNextFrame() {
-        if (!active) { showStatus("The camera is not ready."); return }
-        if (!processing.compareAndSet(false, true)) { showStatus("Previous scan is still running. Try again."); return }
+        if (!active) { showStatus(getString(R.string.live_not_ready)); return }
+        if (!processing.compareAndSet(false, true)) { showStatus(getString(R.string.live_previous_scan_running)); return }
         val captureSession = session
         val region = scanRegion
         val still = imageCapture
         if (still == null) {
             manuallyRequested.set(true)
             processing.set(false)
-            showStatus("This camera supports frame scanning; capturing the next live frame…")
+            showStatus(getString(R.string.live_frame_fallback))
             return
         }
         // The atomic claim above excludes the analyzer while capturing.
-        showStatus("Capturing a Quran page with CameraX…")
+        showStatus(getString(R.string.live_capturing))
         still.takePicture(analysisExecutor, object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
                 var upright: Bitmap? = null
@@ -379,8 +378,8 @@ class LiveScanActivity : ComponentActivity() {
         getSharedPreferences("quran_reader_settings", MODE_PRIVATE).edit().putBoolean("auto_scan_paused", nowPaused).apply()
         togglePause.text = if (nowPaused) getString(R.string.live_resume_auto) else getString(R.string.live_pause_auto)
         if (!nowPaused) gate.reset()
-        showStatus(if (nowPaused) "Automatic scanning paused. 'Scan photo' still works."
-            else "Automatic scanning resumed. Text remains unverified.")
+        showStatus(if (nowPaused) getString(R.string.live_auto_paused_notice)
+            else getString(R.string.live_auto_resumed_notice))
     }
 
     private fun toUprightBitmap(image: ImageProxy, region: LiveScanRegion): Bitmap {
@@ -432,7 +431,7 @@ class LiveScanActivity : ComponentActivity() {
     private fun recognizeOffline(bitmap: Bitmap, scanSession: Int, region: LiveScanRegion) {
         try {
             if (!active || scanSession != session || scanRegion !== region) return
-            postStatus("Processing Arabic OCR completely offline…")
+            postStatus(getString(R.string.live_processing))
             val scan = OfflineArabicOcr(applicationContext).read(bitmap, profile)
             val corpus = OfflineCorpus(applicationContext)
             val complete = corpus.isComplete()
@@ -444,7 +443,7 @@ class LiveScanActivity : ComponentActivity() {
                 if (complete && candidates.isNotEmpty()) {
                     candidates.take(3).forEach { candidate ->
                         val btn = Button(this).apply {
-                            text = "Review ${candidate.id.surah}:${candidate.id.ayah} (manual verification)"
+                            text = getString(R.string.scan_review_candidate, candidate.id.surah, candidate.id.ayah)
                             isAllCaps = false
                             setOnClickListener {
                                 startActivity(Intent(this@LiveScanActivity, RecitationActivity::class.java).apply {
@@ -460,15 +459,16 @@ class LiveScanActivity : ComponentActivity() {
                 }
                 val result = scan.rawUnverifiedText.trim()
                 rawOutput.text = if (result.isEmpty())
-                    "No readable Arabic found. Hold steady, increase lighting, and try again."
+                    getString(R.string.live_empty_result)
                 else buildString {
-                    append("⚠ UNVERIFIED OCR (may contain errors in words or harakat)\n\n")
+                    appendLine(getString(R.string.gallery_ocr_unverified))
+                    appendLine()
                     append(result.take(1800))
                     append("\n\n")
-                    if (!complete) append("Reference Quran text is not yet bundled. No verse is verified. Audio disabled.")
-                    else if (candidates.isEmpty()) append("No reliable verse candidate. Audio disabled.")
+                    if (!complete) append(getString(R.string.live_no_reference))
+                    else if (candidates.isEmpty()) append(getString(R.string.live_no_candidate))
                     else {
-                        append("Possible references only; user confirmation required:\n")
+                        appendLine(getString(R.string.gallery_possible_matches))
                         candidates.forEach { append("${it.id.surah}:${it.id.ayah} — ${it.canonicalArabic}\n") }
                     }
                 }

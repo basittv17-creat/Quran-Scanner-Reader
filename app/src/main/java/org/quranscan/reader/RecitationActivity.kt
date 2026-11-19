@@ -283,7 +283,7 @@ class RecitationActivity : ComponentActivity() {
 
     private fun moveAyah(direction: Int) {
         val next = VerseNavigation.adjacent(VerseId(activeKey.surah, activeKey.ayah), direction)
-        if (next == null) { status.text = "No adjacent verse at this boundary."; return }
+        if (next == null) { status.text = getString(R.string.recitation_boundary); return }
         surahInput.setText(next.surah.toString())
         ayahInput.setText(next.ayah.toString())
         loadSelection() // Selection never starts playback.
@@ -311,7 +311,7 @@ class RecitationActivity : ComponentActivity() {
         val a = ayahInput.text.toString().toIntOrNull()
         if (s == null || a == null || !QuranVerseCounts.valid(s, a)) {
             verseView.text = "Invalid Surah / Ayah"
-            status.text = "Select a valid Quran verse reference."
+            status.text = getString(R.string.recitation_invalid_reference)
             return
         }
         val key = AudioVerseKey(s, a)
@@ -391,7 +391,7 @@ class RecitationActivity : ComponentActivity() {
     }
 
     private fun selectWord(index: Int) {
-        val words = timing ?: run { status.text = "Word timings are not installed for this verse."; return }
+        val words = timing ?: run { status.text = getString(R.string.recitation_no_timings); return }
         cancelPlayback()
         chosenWord = index.coerceIn(0, words.lastIndex)
         displayWord(chosenWord)
@@ -401,7 +401,7 @@ class RecitationActivity : ComponentActivity() {
     private fun playWord() {
         val window = timing?.getOrNull(chosenWord)
         if (window == null) {
-            status.text = "Cannot isolate word: valid word timings are missing."
+            status.text = getString(R.string.recitation_no_exact_timings)
             return
         }
         followWords = false
@@ -419,14 +419,14 @@ class RecitationActivity : ComponentActivity() {
         if (canonicalArabic == null) { status.text = "Playback blocked: verified corpus is incomplete."; return }
         val expected = audioSha256
         if (expected == null) {
-            status.text = "No local audio file: import a licensed, checked MP3 pack."
+            status.text = getString(R.string.recitation_no_audio)
             return
         }
         cancelPlayback()
         val request = playbackRequest
         val token = selectionToken
         val key = activeKey
-        status.text = "Checking the local recording…"
+        status.text = getString(R.string.recitation_verifying_audio)
         executor.execute {
             val verified = runCatching {
                 val file = audioStore.audioFile(key) ?: error("Local audio file is missing")

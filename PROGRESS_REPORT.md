@@ -13,6 +13,8 @@ Both runs passed source-only Kotlin compilation, resource processing, 7 Python O
 
 [Run 44528335088](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44528335088) passed for `cc73e0ae1b59d500ca87d443b01121899c8dcbeb` with 29 JVM tests, zero failures/errors/skips, lint 0 errors / 42 warnings and no APK/AAB. JitPack resolves only the Tesseract4Android module. See the [dependency and private-storage review](docs/NEXT_STEPS.md) for outstanding byte-integrity and native-library advisory work.
 
+[Run 44528737203](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44528737203) passed for `74ce21d33895d6239d5c33d2bf2c9855343fd12e` with 29 JVM tests, zero failures/errors/skips, lint 0 errors / 40 warnings and no APK/AAB. Primary live scan and recitation controls use English and Urdu resources and wrap at larger font sizes. Device layout and TalkBack checks remain pending.
+
 The [full-image source backup](https://drive.google.com/file/d/1XB5QkQhFVGDYeafQn7uHSFpuOzhumTig/view) is a new versioned ZIP. Its SHA-256 is `f1ae9a40db7f04cb3d08d9b1d843f6b507bbcd8fbbe106058f8542032dd27cc9`. Local archive validation checked ZIP integrity, both Quran corpus digests and absence of APK/AAB entries.
 
 
