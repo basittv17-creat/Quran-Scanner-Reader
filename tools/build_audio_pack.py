@@ -22,29 +22,37 @@ COUNTS = [
 
 
 def build(folder: Path, output: Path, reciter: str, source: str, rights: str, complete=False):
-    assert folder.is_dir(), 'MP3 source folder must exist'
-    for v in (reciter,source,rights):
-        assert 0 < len(v.strip()) <= 240 and '\n' not in v and '\r' not in v
+    if not folder.is_dir():
+        raise ValueError('MP3 source folder must exist')
+    for label, value in (('reciter', reciter), ('source', source), ('rights', rights)):
+        if not value or not 1 <= len(value.strip()) <= 240 or any(ord(c) < 32 for c in value):
+            raise ValueError(f'Invalid {label} attribution')
     files = sorted(folder.iterdir())
-    assert files and all(p.is_file() and not p.is_symlink() for p in files)
-    assert len(files) <= 6236
+    if not files or len(files) > 6236 or any(not p.is_file() or p.is_symlink() for p in files):
+        raise ValueError('Audio source must contain 1 to 6236 regular files without symlinks')
     lines = ['# QSR-AUDIO-1',f'# reciter={reciter}',f'# source={source}',f'# rights={rights}']
     total = 0
     for p in files:
-        assert re.fullmatch(r'\d{3}_\d{3}\.mp3',p.name),f'Invalid filename: {p.name}'
+        if not re.fullmatch(r'\d{3}_\d{3}\.mp3', p.name):
+            raise ValueError(f'Invalid filename: {p.name}')
         surah,ayah = map(int,p.stem.split('_'))
-        assert 1 <= surah <= 114 and 1 <= ayah <= COUNTS[surah-1],p.name
+        if not 1 <= surah <= 114 or not 1 <= ayah <= COUNTS[surah - 1]:
+            raise ValueError(f'Invalid Quran verse reference: {p.name}')
         size = p.stat().st_size
-        assert 0 < size <= 8*1024*1024,p.name
+        if not 0 < size <= 8 * 1024 * 1024:
+            raise ValueError(f'Invalid clip size: {p.name}')
         total += size
-        assert total <= 1500*1024*1024
+        if total > 1500 * 1024 * 1024:
+            raise ValueError('Audio pack exceeds 1500 MiB size limit')
         digest = hashlib.sha256(p.read_bytes()).hexdigest()
         lines.append(f'{surah}\t{ayah}\t{p.name}\t{digest}')
     if complete:
         expected = {f'{s:03}_{a:03}.mp3' for s,n in enumerate(COUNTS,1) for a in range(1,n+1)}
-        assert {p.name for p in files} == expected, 'Not a complete set of 6,236 verses'
+        if {p.name for p in files} != expected:
+            raise ValueError('Not a complete set of 6,236 verses')
     output.parent.mkdir(parents=True,exist_ok=True)
-    assert output.resolve() not in [p.resolve() for p in files]
+    if output.resolve() in (p.resolve() for p in files):
+        raise ValueError('Output cannot overwrite an input recording')
     with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=5) as z:
         z.writestr('manifest.tsv','\n'.join(lines)+'\n')
         for p in files:z.write(p,p.name)
