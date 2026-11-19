@@ -2,6 +2,18 @@
 
 ## Current source and validation
 
+Main was audited at `d0f730d26fa1c67431696c03d1c4f7a611fe316e`. [Run 44514943361](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44514943361) passed with 28 JVM tests and lint 0 errors / 43 warnings. Live crop, bounded decoding, audio catalog and import recovery, and persistent recitation mode were already present.
+
+| Source | GitHub Actions | Verified evidence |
+|---|---|---|
+| `8f16855704fae449035bf4077e241d74652f8472` | [44527493461](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44527493461) | Settings, Help and About in English and Urdu. Screen restoration added. 28 JVM tests and lint 0 errors / 42 warnings. |
+| `e8835dcbb850729c09abff281994307652715c64` | [44527849953](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44527849953) | Explicit full-camera-image option, saved with the existing crop state. 29 JVM tests and lint 0 errors / 42 warnings. |
+
+Both runs passed source-only Kotlin compilation, resource processing, 7 Python OCR benchmark tests, source policy, and the no-APK/AAB gate. JVM tests reported zero failures, errors and skips. All 6,236 Tanzil Uthmani v1.1 verses and both corpus digests were verified. Camera alignment and accessibility on physical Android remain pending.
+
+The [full-image source backup](https://drive.google.com/file/d/1XB5QkQhFVGDYeafQn7uHSFpuOzhumTig/view) is a new versioned ZIP. Its SHA-256 is `f1ae9a40db7f04cb3d08d9b1d843f6b507bbcd8fbbe106058f8542032dd27cc9`. Local archive validation checked ZIP integrity, both Quran corpus digests and absence of APK/AAB entries.
+
+
 The [development handoff](docs/NEXT_STEPS.md) records the live crop, OCR diagnostics, gallery restore, audio safety, localized navigation, source-validation pins, and local preview checkpoints. Historical results follow.
 
 Date: 19 November 2026. This is an incomplete development delivery, not a release-ready application. No APK/AAB was generated. All 59 original baseline files remain present; history is retained.

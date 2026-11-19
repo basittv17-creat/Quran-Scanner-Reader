@@ -51,3 +51,9 @@ New source checks do not close these manual gates:
 - Check all recitation controls, MP3 seeking/highlights, accessibility, Arabic fonts and translated strings on device. Complete localization remains TODO.
 
 No APK/AAB was generated to perform these checks. Live reticle coordinate mapping has geometry tests. Calibrate light and detail guidance and verify camera alignment on representative devices.
+
+## Follow-up rights review
+
+- The [King Fahd Complex rights page](https://dm.qurancomplex.gov.sa/rights/) permits software and digital publishing use of its official Madani edition. Its [download page](https://dm.qurancomplex.gov.sa/) publishes a SHA-256 for the Hafs artwork. This gives the benchmark a publisher-approved edition to source. Representative photographs of printed pages, permission for the actual photographs, and manually reviewed verse labels remain required.
+- A [Qudrat Ullah 15-line Pakistani scan](https://islam.hasnats.com/quran/printed) is attributed to a copy uploaded under CC BY-NC-ND 3.0. The publisher's authorization has not been established. Obtain explicit rights for the exact page images and benchmark use before redistributing them.
+- The [Quran Foundation audio FAQ](https://api-docs.quran.com/docs/tutorials/faq/) directs redistributors to the recording-specific rights holder and restricts rehosting its own audio downloads. The [QUL timing license](https://github.com/QUD-Technologies/quranic-universal-audio/blob/main/LICENSE) does not license recordings. Authentic redistribution-cleared audio and a human-reviewed timing set bound to its exact bytes remain required.
