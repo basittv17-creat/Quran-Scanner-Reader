@@ -12,7 +12,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
-import java.io.File
+import java.io.FileDescriptor
 
 /** Foreground, local-only playback. MP3 segment seeking remains approximate.
  * All controls and callbacks run on the main thread; preparation is asynchronous.
@@ -64,20 +64,18 @@ class OfflineAyahPlayer(
         }
     }
 
-    fun play(file: File, startMs: Int = 0, endMs: Int? = null, requiredDurationMs: Int = 0) {
+    fun play(recording: FileDescriptor, startMs: Int = 0, endMs: Int? = null, requiredDurationMs: Int = 0) {
         stop()
         if (released) return
         val mp = MediaPlayer()
         player = mp
         try {
-            require(file.isFile && file.length() > 0 &&
-                file.name.matches(Regex("[0-9]{3}_[0-9]{3}\\.mp3"))) { "Missing local verse recording" }
             require(requiredDurationMs >= 0) { "Invalid timing duration" }
             require(startMs >= 0 && (endMs == null || endMs > startMs)) { "Invalid audio segment" }
             segmentEnd = endMs
             playWhenReady = true
             mp.setAudioAttributes(attributes)
-            mp.setDataSource(file.absolutePath)
+            mp.setDataSource(recording)
             mp.setOnCompletionListener {
                 if (player === mp) { stop(); onFinished() }
             }
