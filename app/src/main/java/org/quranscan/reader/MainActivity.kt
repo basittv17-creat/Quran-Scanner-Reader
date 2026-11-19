@@ -206,7 +206,7 @@ class MainActivity : Activity() {
     private fun previewGalleryCrop(bitmap: Bitmap) {
         screen("Select Quran text", scrollable = false)
         label("Drag a rectangle around the text, then scan the selection. Full image scanning is also available.", 15)
-        val crop = GalleryCropView(this, bitmap)
+        val crop = GalleryCropView(this).apply { setImage(bitmap) }
         root.addView(crop, LinearLayout.LayoutParams(-1, 0, 1f))
         action("Scan selected area") {
             val selected = runCatching { crop.croppedBitmap() }.getOrNull()

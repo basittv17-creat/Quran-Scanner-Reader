@@ -210,6 +210,7 @@ class LiveScanActivity : ComponentActivity() {
                         setAnalyzer(analysisExecutor) { image -> analyze(image) }
                     }
                 val still = ImageCapture.Builder()
+                    .setTargetResolution(android.util.Size(1500, 1125))
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .build()
                 provider.unbindAll()

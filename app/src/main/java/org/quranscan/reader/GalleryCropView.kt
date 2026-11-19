@@ -6,12 +6,14 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import org.quranscan.reader.core.CropBounds
 
 /** Fit-center preview with selection mapped back to the bounded decoded image. */
-class GalleryCropView(context: Context, private val image: Bitmap) : View(context) {
+class GalleryCropView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
+    private lateinit var image: Bitmap
     private val imageRect = RectF()
     private val selectionRect = RectF()
     private val imagePaint = Paint(Paint.FILTER_BITMAP_FLAG)
@@ -20,7 +22,7 @@ class GalleryCropView(context: Context, private val image: Bitmap) : View(contex
         strokeWidth = 2 * resources.displayMetrics.density
     }
     private val shade = Paint().apply { color = Color.argb(125, 0, 0, 0) }
-    private var selection = CropBounds(0, 0, image.width, image.height)
+    private var selection = CropBounds(0, 0, 1, 1)
     private var startX = 0f
     private var startY = 0f
     private var dragging = false
@@ -31,7 +33,15 @@ class GalleryCropView(context: Context, private val image: Bitmap) : View(contex
         contentDescription = "Image crop preview. Drag to select text, or use Scan full image."
     }
 
+    fun setImage(bitmap: Bitmap) {
+        image = bitmap
+        selection = CropBounds(0, 0, bitmap.width, bitmap.height)
+        requestLayout()
+        invalidate()
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        if (!::image.isInitialized) return
         scale = minOf(w.toFloat() / image.width, h.toFloat() / image.height).coerceAtLeast(.0001f)
         val dw = image.width * scale
         val dh = image.height * scale
@@ -40,6 +50,7 @@ class GalleryCropView(context: Context, private val image: Bitmap) : View(contex
 
     override fun onDraw(canvas: Canvas) {
         canvas.drawColor(Color.BLACK)
+        if (!::image.isInitialized) return
         canvas.drawBitmap(image, null, imageRect, imagePaint)
         selectionRect.set(imageRect.left + selection.left * scale, imageRect.top + selection.top * scale,
             imageRect.left + selection.right * scale, imageRect.top + selection.bottom * scale)
@@ -51,6 +62,7 @@ class GalleryCropView(context: Context, private val image: Bitmap) : View(contex
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (!::image.isInitialized) return false
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 if (!imageRect.contains(event.x, event.y)) return false

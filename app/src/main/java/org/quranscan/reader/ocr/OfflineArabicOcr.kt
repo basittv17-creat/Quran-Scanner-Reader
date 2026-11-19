@@ -63,7 +63,7 @@ class OfflineArabicOcr(private val context: Context) {
         }
     }
 
-    private fun prepareModel(): File {
+    private fun prepareModel(): File = synchronized(modelLock) {
         val folder = File(context.filesDir, "tesseract/tessdata")
         check(folder.isDirectory || folder.mkdirs()) { "Cannot make private OCR data folder" }
         val dest = File(folder, "ara.traineddata")
@@ -81,7 +81,7 @@ class OfflineArabicOcr(private val context: Context) {
                 if (temp.exists()) temp.delete()
             }
         }
-        return folder.parentFile ?: error("Model path invalid")
+        folder.parentFile ?: error("Model path invalid")
     }
 
     private fun sha256(file: File): String {
@@ -98,6 +98,8 @@ class OfflineArabicOcr(private val context: Context) {
     }
 
     companion object {
+        // Gallery and camera workers may overlap during navigation.
+        private val modelLock = Any()
         // Debian tesseract-ocr-ara tessdata_fast model, Apache-2.0.
         const val MODEL_SHA256 = "e3206d3dc87fd50c24a0fb9f01838615911d25168f4e64415244b67d2bb3e729"
     }

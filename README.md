@@ -98,3 +98,5 @@ Final source validation: [44466055230](https://github.com/basittv17-creat/Quran-
 ## Camera and native UI continuation
 
 Camera focus/metering, bounded exposure controls, persisted auto-pause, foreground recovery and stale-session rejection now have compile-only CI evidence (runs 44481527823 and 44481771624). Native Help/Exit, Settings privacy/storage guidance, safe system/keyboard insets and gallery callback navigation guards are the next source checkpoint. See PROGRESS_REPORT.md for exact tested commits, backup hashes and remaining manual gates. The reticle is still a guide for full-frame OCR; real Mushaf OCR accuracy and device behavior remain unverified.
+
+Gallery now offers drag-to-crop before offline OCR, with a full-image fallback. Crop geometry is covered by a ninth JVM safety test; run 44482560224 passed. Final constructor/model-extraction/still-resolution refinements have a separate following CI run. Detailed remaining implementation tasks and external QA gates are tracked in docs/DEVELOPMENT_HANDOFF_2026-11-19.md. No APK/AAB has been produced.

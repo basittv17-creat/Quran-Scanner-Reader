@@ -111,3 +111,11 @@ Next native UI changes add Help and Exit navigation, prominent Live Quran Scan /
 UI commit `5ea42507430f5f5b773fa319b825035c6f87fb70`, Actions https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44482128467 completed successfully: 8 JVM tests, no failed/skipped tests, lint 0 errors / 39 warnings, Python checks and no-APK gate passed.
 
 Added a bounded decoded-image crop preview before gallery OCR: drag in the fitted image, clamp/reverse bounds safely, scan selection or full image, or cancel. Crop math has synthetic JVM coverage for reversed/out-of-range drags, fractional edges, tiny and non-finite input. Text bytes are never interpreted or changed by crop math. Full-image fallback remains available for accessibility. Gesture/EXIF/layout rendering and OCR effects still need device and reviewed real-image testing. Camera reticle remains a guide. See docs/DEVELOPMENT_HANDOFF_2026-11-19.md for explicit implementation TODOs as well as external blockers.
+
+### Gallery checkpoint verified; final source refinements
+
+Gallery crop commit `71114fa9ffe52c4f81c621382dff4a921ee2d224`, run https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44482560224 completed/success: 9 JVM tests with zero failures/errors/skips, lint 0 errors / 40 warnings; full Python/Kotlin/resources/source checks passed, no APK/AAB. The new warning was a custom-view tooling constructor; the follow-up uses a standard Context/AttributeSet constructor without suppressing lint.
+
+Final refinements also request a smaller still-camera resolution (hardware may choose a nearby supported size; this is not a proven memory ceiling) and serialize OCR model extraction so overlapping gallery/camera workers cannot race on the same partial file. Android CI for these refinements follows this commit. Device/real-image tests remain deferred. All 59 baseline files are retained; verified corpus assets are unchanged.
+
+Native UI source ZIP: https://drive.google.com/file/d/1Bh9ZoZS-p7a-HRkQdutDsuQ5frfNHOeQ/view ; SHA-256 `126aa8bcb1409c6ec96c009cf493e63ec7d0698fb64b6267d3ce2497642d3ce6`. Camera v13 report/ZIP notification was sent to basittv17@gmail.com. The final tested source ZIP/PDF will be a new version, preserving older backups.
