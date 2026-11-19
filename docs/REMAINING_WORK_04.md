@@ -1,0 +1,27 @@
+# Remaining work 04 — Recitation, interruptions and timing safety
+
+## Audited source
+
+Initial main was `eb067178a9cf5bf7f6c24d43f48c6314f99ac0fd`, ahead of the supplied `e3065999c7616c677745471b9ae975ea2c9b0d9c` reference. Reviewed the recent history, progress and Urdu reports, November 19 handoff, next steps, external assets and QA, OCR benchmark, source-validation workflow and available workstream reports. Reviewed RecitationActivity, OfflineAyahPlayer, RecitationPlaybackGate, PlaybackRange, VerifiedRecording, WordHighlightText, WordTimingFormat, timing binding in the local stores, and corresponding JVM tests. Existing interruption confirmation from `d858ead` remains in use. Concurrent OCR and source-policy updates were incorporated before publishing the playback commit.
+
+## Implemented in `c4321b17f76676d9027818d4fe6efac90eb151af`
+
+- Acquire audio focus before asynchronous player preparation so a focus loss during prepare or seek reaches the existing confirmation revocation path. That path cancels pending verification, stops/releases the current player and clears highlights. Headphone route-loss broadcasts also use that path. Focus gain has no start action. Focus requests during ringtone, call or communication audio modes are refused.
+- Manual Pause cancels verification and releases an unfinished prepare or seek. Use Play or Replay to restart canceled setup. Explicit Resume remains available for prepared, paused audio while the foreground confirmation remains valid. Pause, completion, failure, interruption and destruction manage the cutoff callback and focus.
+- Keep checking the selected-word end until playback is paused, stops or releases. A position at or past the end during initial start or resume fails closed. A decoder error clears confirmation and releases resources. MP3 seeking and main-thread cutoff polling remain approximate and require listening review.
+- Revoke confirmation when import begins. The selection token discards stale verse loads and playback generation discards stale recording verification after selection, mode, pack or lifecycle changes. The same verified file descriptor reaches MediaPlayer and is then closed by the activity. Initial OCR navigation and recreation only load the canonical selection. Save the current verse, its selected word and mode preference while requiring fresh confirmation after recreation.
+- Keep timing windows bound to the exact recording and canonical ayah digests. Word span positions use the original Arabic string. User-facing selected-word guidance states that timings require listening review. Added deterministic coverage for the selected-word cutoff and seek overshoot, malformed windows, zero/short decoded duration, and truncated, empty or missing recordings. Existing gate tests cover confirmation, stale verification and replay.
+
+No recording/timing assets, Quran assets, localization resources or audio-pack storage code were changed. Source policy and both Tanzil SHA-256 pins were checked. The publisher source remains `18c719bb3ba26d32ef457f40dad77cd28c4c5a34156833e26a8e5fcfdd246fb1`, and the bundled JSONL remains `fa338471ce7cf0f08e57244458e143ceab555d1905d55e012d49da37cf541270`. All 6,236 verses, Arabic marks, attribution and license were retained.
+
+## Validation
+
+The [initial main Actions job](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44535664372/job/135600271127) completed successfully with 42 JVM tests, 15 Python OCR benchmark tests and lint at 0 errors / 31 warnings. Its no-APK/AAB gate passed.
+
+The [playback Actions job](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44536233246/job/135602274105) ran exactly the four authorized Gradle tasks and passed with 45 JVM tests, zero failures/errors/skips, 21 Python OCR benchmark tests and lint at 0 errors / 31 warnings. Source policy, corpus provenance and audio/timing pack validations passed. The job log confirms no APK/AAB artifacts found. Local standalone corpus, pack, OCR and source-policy checks passed. The full Phase 8 wrapper and Gradle tasks used Actions because the local environment lacks Kotlin and Gradle tooling. Real-page OCR accuracy remains pending reviewed, rights-cleared image exports.
+
+Source-only backup `Quran-Scanner-Reader-work04-c4321b1-source.zip` has SHA-256 `1118fac9501182546e324a742f5883e87fa936a581cbc77a8d4b55fc77e46999`. Archive validation checked ZIP integrity, both corpus hashes and absence of APK/AAB entries.
+
+## Physical Android and listening review — PENDING
+
+On physical API 23 and modern Android, test permanent/transient/duckable focus loss, ringing and calls before and during playback, wired/Bluetooth disconnection, background/return, rotation and process recreation. Exercise Pause/Resume and Replay during verification, prepare, seek and active playback. Confirm no unsolicited restart and fresh confirmation after interruption. Swap packs or change ayah, word and mode while verification is pending. Confirm stale results cannot start a clip, malformed or incomplete recordings remain recoverable, and repeated exits release the receiver, decoder and audio focus. Check duration mismatch, seek landing and audible selected-word boundaries with rights-cleared clips and independently reviewed timings bound to exact audio and canonical text. Record device/build, fixture hashes and results. Review rights, approved timing coverage and scholarly/device evidence remain pending. See [external assets and QA](EXTERNAL_ASSETS_AND_QA.md).
