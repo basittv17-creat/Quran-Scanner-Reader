@@ -8,7 +8,6 @@ import org.quranscan.reader.core.QuranVerseCounts
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
-import java.util.UUID
 import java.util.zip.ZipInputStream
 
 /** Import only from a user selected local ZIP; rejects traversal, oversized and mismatched data.
@@ -20,21 +19,25 @@ class OfflineWordTimingStore(private val context: Context) {
     private val active get() = PackActivation.recover(root)
     private val filename = Regex("[0-9]{3}_[0-9]{3}\\.tsv")
 
-    fun manifest(): WordTimingManifest? = runCatching {
-        val f = File(active, "manifest.tsv")
-        if (!f.isFile) null else WordTimingFormat.parseManifest(f.readText(Charsets.UTF_8))
+    fun manifest(): WordTimingManifest? = runCatching { manifestAt(active) }.getOrNull()
+
+    private fun manifestAt(folder: File): WordTimingManifest? = runCatching {
+        val f = File(folder, "manifest.tsv")
+        if (!f.isFile || f.length() !in 1..2 * 1024 * 1024L) null
+        else WordTimingFormat.parseManifest(f.readText(Charsets.UTF_8))
     }.getOrNull()
 
     /** Return null if the audio pack or the canonical verse changed, or if any timing bytes changed. */
     fun timeline(key: AudioVerseKey, canonicalVerse: String, audio: AudioPackManifest?): List<TimedWord>? {
-        val m = manifest() ?: return null
+        val folder = runCatching { active }.getOrNull() ?: return null
+        val m = manifestAt(folder) ?: return null
         val record = m.entries[key] ?: return null
         if (audio == null || m.reciter != audio.reciter) return null
         if (record.audioSha256 != audio.entries[key]?.sha256) return null
         if (record.canonicalTextSha256 != WordTimingFormat.verseDigest(canonicalVerse)) return null
-        val path = File(active, record.filename)
+        val path = File(folder, record.filename)
         if (!path.isFile || path.length() > 32 * 1024L) return null
-        val bytes = path.readBytes()
+        val bytes = runCatching { path.readBytes() }.getOrNull() ?: return null
         if (WordTimingFormat.sha256(bytes) != record.sha256) return null
         if (WordTimingFormat.words(canonicalVerse).size != record.wordCount) return null
         return runCatching {
@@ -45,9 +48,7 @@ class OfflineWordTimingStore(private val context: Context) {
     fun install(uri: Uri, corpus: OfflineCorpus, audio: AudioPackManifest?): WordTimingManifest {
         require(corpus.isComplete()) { "Import blocked: complete canonical Quran text is missing" }
         require(audio != null) { "Import a licensed ayah MP3 pack first" }
-        require(root.isDirectory || root.mkdirs())
-        val stage = File(root, "stage_${UUID.randomUUID()}")
-        check(stage.mkdir())
+        val stage = PackStaging.create(root)
         try {
             val names = hashSetOf<String>()
             var total = 0L
@@ -104,7 +105,7 @@ class OfflineWordTimingStore(private val context: Context) {
             PackActivation.activate(root, stage)
             return manifest
         } finally {
-            if (stage.exists()) stage.deleteRecursively()
+            PackStaging.release(stage)
         }
     }
 }

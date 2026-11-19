@@ -1,5 +1,9 @@
 # تازہ تصدیق شدہ ترقیاتی حیثیت — 19 نومبر 2026
 
+## حالیہ سورس اور تصدیق
+
+[تازہ ترقیاتی ہینڈ آف](docs/NEXT_STEPS.md) میں لائیو کراپ، گیلری کی بحالی، آڈیو کی سالمیت، اردو اور انگریزی نیویگیشن، OCR جانچ اور باقی شرائط درج ہیں۔ اس کے بعد کی تفصیل سابقہ مراحل کا ریکارڈ ہے۔
+
 - آخری Application Source: `e53b8a2aa4547d58605d38178bd1174800d727c0`۔ Run 44506883081 کامیاب ہے۔
 - 20 JVM Tests، صفر failures/errors/skips؛ Lint صفر Errors اور 46 Warnings۔ Python، اصل قرآنی متن، Audio Format، Kotlin اور Resources کی جانچ کامیاب۔ کوئی Test بند یا Warning suppress نہیں کی۔
 - بڑی Camera JPEG کو Bitmap بنانے سے پہلے محدود Decode، قابلِ Scroll آیت Review، آڈیو/ٹائمنگ Import کی interruption recovery اور درآمد کے دوران Playback کی حفاظت شامل ہے۔

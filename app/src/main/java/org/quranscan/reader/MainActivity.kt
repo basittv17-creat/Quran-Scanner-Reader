@@ -10,13 +10,16 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.core.view.GravityCompat
+import org.quranscan.reader.core.CropBounds
 import org.quranscan.reader.core.ImageDecodeLimits
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.core.VerseCandidates
+import org.quranscan.reader.core.VerseId
 import org.quranscan.reader.ocr.OfflineArabicOcr
 import java.util.concurrent.Executors
 
@@ -34,6 +37,11 @@ class MainActivity : Activity() {
     private val worker = Executors.newSingleThreadExecutor()
     private val pickImage = 101
     private var scanToken = 0
+    private var galleryUri: Uri? = null
+    private var galleryBitmap: Bitmap? = null
+    private var galleryCrop: GalleryCropView? = null
+    private var gallerySelection: CropBounds? = null
+    private var designPreview: android.webkit.WebView? = null
     private var profile = OfflineArabicOcr.Profile.AUTO
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,17 +51,35 @@ class MainActivity : Activity() {
         profile = runCatching {
             OfflineArabicOcr.Profile.valueOf(getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getString("profile", "AUTO")!!)
         }.getOrDefault(OfflineArabicOcr.Profile.AUTO)
-        home()
+        val restoredUri = savedInstanceState?.getString("gallery_uri")?.let(Uri::parse)
+        val restoredCrop = savedInstanceState?.getIntArray("gallery_selection")
+            ?.takeIf { it.size == 4 }
+            ?.let { CropBounds(it[0], it[1], it[2], it[3]) }
+        if (restoredUri != null) openGalleryImage(restoredUri, restoredCrop) else home()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        galleryUri?.let { outState.putString("gallery_uri", it.toString()) }
+        (galleryCrop?.selectedBounds() ?: gallerySelection)?.let {
+            outState.putIntArray("gallery_selection", intArrayOf(it.left, it.top, it.right, it.bottom))
+        }
+        super.onSaveInstanceState(outState)
     }
 
     override fun onDestroy() {
         scanToken++
+        releaseDesignPreview()
+        releaseGalleryPreview()
         worker.shutdownNow()
         super.onDestroy()
     }
 
     private fun screen(title: String, scrollable: Boolean = true) {
         scanToken++ // Navigation invalidates pending gallery results.
+        releaseDesignPreview()
+        releaseGalleryPreview()
+        galleryUri = null
+        gallerySelection = null
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
@@ -74,21 +100,23 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(-1, -2))
         }
         side.addView(TextView(this).apply { text = "Quran Scan Reader"; textSize = 23f; setTextColor(gold) })
-        item("Home") { home() }
-        item("Live scanner") { camera() }
-        item("Gallery scanner") { gallery() }
-        item("Read Quran / recitation") { recitation() }
-        item("Settings") { settings() }
-        item("Help") { help() }
-        item("About / text source") { about() }
-        item("Exit") { finishAndRemoveTask() }
-        item("Offline design preview") { preview() }
+        item(getString(R.string.nav_home)) { home() }
+        item(getString(R.string.nav_camera)) { camera() }
+        item(getString(R.string.nav_gallery)) { gallery() }
+        item(getString(R.string.nav_recitation)) { recitation() }
+        item(getString(R.string.nav_settings)) { settings() }
+        item(getString(R.string.nav_help)) { help() }
+        item(getString(R.string.nav_about)) { about() }
+        item(getString(R.string.nav_exit)) { finishAndRemoveTask() }
+        item(getString(R.string.nav_preview)) { preview() }
         drawer.addView(ScrollView(this).apply { addView(side) }, DrawerLayout.LayoutParams(
             (280 * resources.displayMetrics.density).toInt(), -1, Gravity.START))
         setContentView(drawer)
         drawer.applyReaderInsets()
         root.addView(Button(this).apply {
-            text = "☰ Menu"; contentDescription = "Open navigation menu"
+            text = getString(R.string.nav_menu); contentDescription = getString(R.string.nav_menu_description)
+            isAllCaps = false
+            minHeight = (48 * resources.displayMetrics.density).toInt()
             setOnClickListener { drawer.openDrawer(GravityCompat.START) }
         }, LinearLayout.LayoutParams(-2, -2))
         label(title, 25, gold)
@@ -122,30 +150,57 @@ class MainActivity : Activity() {
     }
 
     private fun home() {
-        scanToken++
         screen("☪ Quran Scan Reader")
-        runCatching { OfflineCorpus(this).find(org.quranscan.reader.core.VerseId(1, 1)) }.getOrNull()?.let { label(it, 23, gold, true) }
-        label("Offline Quran text • Camera and gallery scanning", 14)
-        val status = runCatching {
-            val db = OfflineCorpus(this)
-            "Quran text: ${db.count()}/6236  |  ${if (db.isComplete()) "structurally complete (review pending)" else "incomplete; matching disabled"}"
-        }.getOrElse { "Quran corpus checksum error; matching disabled" }
-        label(status, 13)
-        label("SCAN THE HOLY QURAN", 15, gold)
-        action("📷 Live Quran Scan") { camera() }
-        action("▧ Upload Quran Picture") { gallery() }
-        action("▶ Offline Recitation & Word Highlight · Phase 8") { recitation() }
-        action("Settings") { settings() }
-        action("Help") { help() }
-        action("About") { about() }
-        action("WebView design preview") { preview() }
-        label("🔒 Offline by design · No Internet permission · OCR results unverified", 12)
+        val token = scanToken
+        val openingVerse = TextView(this).apply {
+            visibility = View.GONE
+            textDirection = View.TEXT_DIRECTION_RTL
+            textSize = arabicSize.toFloat()
+            setTextColor(gold)
+            gravity = Gravity.CENTER
+        }
+        root.addView(openingVerse)
+        val corpusStatus = TextView(this).apply {
+            text = getString(R.string.home_corpus_loading)
+            setTextColor(gold)
+            gravity = Gravity.CENTER
+        }
+        root.addView(corpusStatus)
+        worker.execute {
+            val db = OfflineCorpus(applicationContext)
+            val complete = runCatching { db.isComplete() }.getOrNull()
+            val firstAyah = if (complete == true) db.find(VerseId(1, 1)) else null
+            val status = when (complete) {
+                true -> getString(R.string.home_corpus_available, db.count())
+                false -> getString(R.string.home_corpus_incomplete)
+                null -> getString(R.string.home_corpus_invalid)
+            }
+            runOnUiThread {
+                if (token != scanToken || isFinishing || isDestroyed) return@runOnUiThread
+                corpusStatus.text = status
+                if (firstAyah != null) {
+                    openingVerse.text = firstAyah
+                    openingVerse.visibility = View.VISIBLE
+                }
+            }
+        }
+        action(getString(R.string.nav_camera)) { camera() }
+        action(getString(R.string.nav_gallery)) { gallery() }
+        action(getString(R.string.nav_recitation)) { recitation() }
+        action(getString(R.string.nav_settings)) { settings() }
+        action(getString(R.string.nav_help)) { help() }
+        action(getString(R.string.nav_about)) { about() }
+        action(getString(R.string.nav_preview)) { preview() }
+        label(getString(R.string.home_privacy), 12)
     }
 
-    private fun recitation(surah: Int = 1, ayah: Int = 1) {
+    private fun recitation(surah: Int = 1, ayah: Int = 1, scannedText: String? = null) {
         startActivity(Intent(this, RecitationActivity::class.java).apply {
             putExtra(RecitationActivity.EXTRA_SURAH, surah)
             putExtra(RecitationActivity.EXTRA_AYAH, ayah)
+            scannedText?.let {
+                putExtra(RecitationActivity.EXTRA_SCANNED_TEXT, it.take(RecitationActivity.MAX_COMPARISON_LENGTH))
+            }
         })
     }
 
@@ -164,76 +219,113 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK || requestCode != pickImage) return
         val uri = data?.data ?: return
+        openGalleryImage(uri)
+    }
+
+    private fun openGalleryImage(uri: Uri, selection: CropBounds? = null) {
         screen("Opening selected image")
+        galleryUri = uri
+        gallerySelection = selection
         val token = scanToken
         label("Preparing image offline…", 16)
         worker.execute {
             val bitmap = decodePreview(uri)
             runOnUiThread {
                 if (token != scanToken || isFinishing || isDestroyed) { bitmap?.recycle(); return@runOnUiThread }
-                if (bitmap == null) { message("Unable to decode image"); home() } else previewGalleryCrop(bitmap)
+                if (bitmap == null) {
+                    message("Unable to open the image. Select a readable local picture and try again.")
+                    home()
+                } else previewGalleryCrop(uri, bitmap, selection)
             }
         }
     }
     private fun decodePreview(uri: Uri): Bitmap? {
         return try {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        val sample = ImageDecodeLimits.sampleSize(bounds.outWidth, bounds.outHeight, 2048)
-        val decoded = contentResolver.openInputStream(uri)?.use {
-            BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
-        } ?: return null
-        val orientation = runCatching {
-            contentResolver.openInputStream(uri)?.use { androidx.exifinterface.media.ExifInterface(it).getAttributeInt(
-                androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, 1) }
-        }.getOrNull() ?: 1
-        val matrix = android.graphics.Matrix()
-        when (orientation) {
-            2 -> matrix.setScale(-1f, 1f)
-            3 -> matrix.setRotate(180f)
-            4 -> matrix.setScale(1f, -1f)
-            5 -> { matrix.setRotate(90f); matrix.postScale(-1f, 1f) }
-            6 -> matrix.setRotate(90f)
-            7 -> { matrix.setRotate(270f); matrix.postScale(-1f, 1f) }
-            8 -> matrix.setRotate(270f)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            val sample = ImageDecodeLimits.sampleSize(bounds.outWidth, bounds.outHeight, 2048)
+            val orientation = runCatching {
+                contentResolver.openInputStream(uri)?.use {
+                    androidx.exifinterface.media.ExifInterface(it).getAttributeInt(
+                        androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, 1
+                    )
+                }
+            }.getOrNull() ?: 1
+            val decoded = contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+            } ?: return null
+            val matrix = android.graphics.Matrix()
+            when (orientation) {
+                2 -> matrix.setScale(-1f, 1f)
+                3 -> matrix.setRotate(180f)
+                4 -> matrix.setScale(1f, -1f)
+                5 -> { matrix.setRotate(90f); matrix.postScale(-1f, 1f) }
+                6 -> matrix.setRotate(90f)
+                7 -> { matrix.setRotate(270f); matrix.postScale(-1f, 1f) }
+                8 -> matrix.setRotate(270f)
+            }
+            if (matrix.isIdentity) return decoded
+            var transformed: Bitmap? = null
+            try {
+                transformed = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+                transformed
+            } finally {
+                if (transformed !== decoded) decoded.recycle()
+            }
+        } catch (_: Exception) {
+            null
+        } catch (_: OutOfMemoryError) {
+            null
         }
-        if (matrix.isIdentity) decoded else Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
-            .also { if (it !== decoded) decoded.recycle() }
-        } catch (_: Exception) { null }
     }
 
-    private fun previewGalleryCrop(bitmap: Bitmap) {
+    private fun previewGalleryCrop(uri: Uri, bitmap: Bitmap, selection: CropBounds?) {
         screen("Select Quran text", scrollable = false)
+        galleryUri = uri
+        galleryBitmap = bitmap
         label("Drag a rectangle around the text, then scan the selection. Full image scanning is also available.", 15)
-        val crop = GalleryCropView(this).apply { setImage(bitmap) }
+        val crop = GalleryCropView(this).apply { setImage(bitmap, selection) }
+        galleryCrop = crop
         root.addView(crop, LinearLayout.LayoutParams(-1, 0, 1f))
         action("Scan selected area") {
             val selected = runCatching { crop.croppedBitmap() }.getOrNull()
             if (selected == null) message("Unable to crop image. Try scanning the full image.")
-            else {
-                root.removeView(crop)
-                if (selected !== bitmap) bitmap.recycle()
-                scan(selected)
-            }
+            else startGalleryScan(uri, selected, crop.selectedBounds())
         }
-        action("Scan full image") { root.removeView(crop); scan(bitmap) }
-        action("Cancel") { root.removeView(crop); bitmap.recycle(); home() }
+        action("Scan full image") { startGalleryScan(uri, bitmap, CropBounds(0, 0, bitmap.width, bitmap.height)) }
+        action("Cancel") { home() }
     }
 
-    private fun scan(bitmap: Bitmap) {
-        screen("Offline Arabic OCR", scrollable = false)
+    private fun releaseGalleryPreview() {
+        galleryCrop?.let { root.removeView(it) }
+        galleryCrop = null
+        galleryBitmap?.recycle()
+        galleryBitmap = null
+    }
+
+    private fun startGalleryScan(uri: Uri, bitmap: Bitmap, selection: CropBounds) {
+        if (galleryBitmap === bitmap) galleryBitmap = null // Transfer ownership to the OCR callback.
+        scan(uri, bitmap, selection)
+    }
+
+    private fun scan(uri: Uri, bitmap: Bitmap, selection: CropBounds) {
+        screen("Offline Arabic OCR")
+        galleryUri = uri
+        gallerySelection = selection
         val token = scanToken
         label("اسکین جاری ہے — شناخت شدہ متن ابھی غیر مصدقہ ہے", 17, gold, true)
         label("Profile: $profile   •   All processing happens on your phone", 13)
-        root.addView(ImageView(this).apply {
+        val scanImage = ImageView(this).apply {
             setImageBitmap(bitmap)
+            contentDescription = "Selected area for offline OCR"
             adjustViewBounds = true
             scaleType = ImageView.ScaleType.FIT_CENTER
-        }, LinearLayout.LayoutParams(-1, 0, 1f))
+        }
+        root.addView(scanImage, LinearLayout.LayoutParams(-1, (180 * resources.displayMetrics.density).toInt()))
         val progress = ProgressBar(this)
         root.addView(progress)
-        action("Home") { home() }
+        action(getString(R.string.nav_home)) { home() }
         worker.execute {
             val response = runCatching {
                 val ocr = OfflineArabicOcr(applicationContext).read(bitmap, profile)
@@ -243,14 +335,16 @@ class MainActivity : Activity() {
                 Triple(ocr, candidates, db.isComplete())
             }
             runOnUiThread {
+                scanImage.setImageDrawable(null)
+                bitmap.recycle()
                 if (token != scanToken || isFinishing || isDestroyed) return@runOnUiThread
+                root.removeView(scanImage)
                 root.removeView(progress)
                 response.onSuccess { (ocr, candidates, complete) ->
                     if (ocr.rawUnverifiedText.isBlank()) {
                         label("No Arabic text detected. Try sharper lighting and a closer image.", 15)
                     } else {
                         label("⚠ UNVERIFIED OCR — may contain letter and diacritic errors", 15, gold)
-                        val scroll = ScrollView(this)
                         val raw = TextView(this).apply {
                             text = ocr.rawUnverifiedText.take(2000)
                             textSize = 21f
@@ -260,8 +354,7 @@ class MainActivity : Activity() {
                             layoutDirection = View.LAYOUT_DIRECTION_RTL
                             setPadding(12, 12, 12, 12)
                         }
-                        scroll.addView(raw)
-                        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+                        root.addView(raw, LinearLayout.LayoutParams(-1, -2))
                     }
                     if (!complete) label("Quran reference data not installed — NO verse was verified. Recitation disabled.", 14, gold)
                     else if (candidates.isEmpty()) label("No sufficiently strong candidate. Do not use raw OCR as Quran text.", 14)
@@ -269,10 +362,11 @@ class MainActivity : Activity() {
                         label("Potential references ONLY (not verified). Compare visually:", 14, gold)
                         candidates.forEach { c ->
                             label("${c.id.surah}:${c.id.ayah} — ${c.canonicalArabic}", 17, gold, true)
-                            action("Review ${c.id.surah}:${c.id.ayah} · do not auto-play") { recitation(c.id.surah, c.id.ayah) }
+                            action("Review ${c.id.surah}:${c.id.ayah} · do not auto-play") { recitation(c.id.surah, c.id.ayah, ocr.rawUnverifiedText) }
                         }
                     }
-                    label("OCR variants examined: ${ocr.variantsChecked}. Word-level timing requires independently reviewed audio and timestamps.", 12)
+                    label(getString(R.string.scan_processing_summary, ocr.variantsChecked, ocr.elapsedMs), 12)
+                    ocr.quality.guidance(this)?.let { label(it, 13) }
                 }.onFailure { label("OCR failed safely: ${it.message ?: "Unknown error"}", 14, gold) }
             }
         }
@@ -280,7 +374,7 @@ class MainActivity : Activity() {
 
     private fun menu() { drawer.openDrawer(GravityCompat.START) }
     private fun settings() {
-        screen("Settings")
+        screen(getString(R.string.nav_settings))
         label("OCR style selection (same generic Arabic model; script training and print testing pending)", 14)
         action("OCR profile: $profile  — change") {
             val options = OfflineArabicOcr.Profile.entries
@@ -312,18 +406,18 @@ class MainActivity : Activity() {
         action("Back") { menu() }
     }
     private fun help() {
-        screen("Help")
-        label("Live scan: allow camera permission, keep the page steady in good light, and tap the preview to focus. Darker/Brighter adjusts supported cameras. Pause auto still allows manual Scan photo.", 16)
-        label("Upload picture: choose a local, sharp image. Rotation is read from EXIF. The gold frame is a guide; OCR currently examines the full image.", 16)
+        screen(getString(R.string.nav_help))
+        label("Live scan: allow camera permission, keep the page steady in good light, tap to focus, and drag across the preview to select the scan area. Darker/Brighter adjusts supported cameras. Pause auto still allows manual Scan photo.", 16)
+        label("Upload picture: choose a local, sharp image. Rotation is read from EXIF. Drag a selection around the text or scan the whole picture.", 16)
         label("Every OCR result is unverified. Open a candidate, compare the complete canonical verse with your printed page and check the Surah/Ayah before pressing Play. No OCR result starts recitation automatically.", 16)
         label("Recitation: import your legally obtained ayah MP3 ZIP. Word playback additionally needs reviewed timings for those exact recordings and this text. Missing or mismatched files disable playback/highlighting.", 16)
         label("Privacy: images are processed locally in memory. No Internet permission, image uploads or analytics. Imported recordings and timing packs stay in app-private storage; Android app storage controls can remove them.", 16)
         label("This development source has no validated Pakistani/Madani OCR accuracy or device certification. Arabic text follows Tanzil Uthmani v1.1; it does not reproduce a Pakistani 15-line page layout.", 15, gold)
-        action("Home") { home() }
+        action(getString(R.string.nav_home)) { home() }
     }
 
     private fun about() {
-        screen("About")
+        screen(getString(R.string.nav_about))
         label("Quran Scan Reader Phase 9 CameraX + Arabic OCR + local recitation engine baseline.\n\n" +
             "OCR: Tesseract4Android + Arabic tessdata_fast (Apache-2.0).\n" +
             "Canonical Quran source: Tanzil Uthmani v1.1 (CC BY 3.0), https://tanzil.net.\n" +
@@ -333,20 +427,42 @@ class MainActivity : Activity() {
         action("Back") { menu() }
     }
     private fun preview() {
+        scanToken++
+        releaseGalleryPreview()
+        galleryUri = null
+        gallerySelection = null
+        releaseDesignPreview()
         val web = android.webkit.WebView(this)
+        designPreview = web
         web.settings.javaScriptEnabled = false
         web.settings.allowContentAccess = false
         web.settings.allowFileAccess = false
         web.settings.blockNetworkLoads = true
+        val previewAsset = "file:///android_asset/preview.html"
         web.webViewClient = object : android.webkit.WebViewClient() {
+            private fun isPreview(url: String?) = url?.substringBefore('#') == previewAsset
+
             @Deprecated("API 23 compatibility")
-            override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, url: String?): Boolean = true
-            override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean = true
+            override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, url: String?): Boolean =
+                !isPreview(url)
+
+            override fun shouldOverrideUrlLoading(
+                view: android.webkit.WebView?,
+                request: android.webkit.WebResourceRequest?
+            ): Boolean = request?.isForMainFrame != true || !isPreview(request.url.toString())
         }
-        web.loadUrl("file:///android_asset/preview.html")
+        web.loadUrl(previewAsset)
         setContentView(web)
         web.applyReaderInsets()
     }
+    private fun releaseDesignPreview() {
+        designPreview?.let {
+            (it.parent as? ViewGroup)?.removeView(it)
+            it.destroy()
+        }
+        designPreview = null
+    }
+
     private fun message(text: String) { Toast.makeText(this, text, Toast.LENGTH_LONG).show() }
     @Deprecated("Prototype navigation")
     override fun onBackPressed() { if (::drawer.isInitialized && drawer.isDrawerOpen(GravityCompat.START)) drawer.closeDrawers() else home() }

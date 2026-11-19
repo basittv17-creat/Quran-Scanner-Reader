@@ -1,5 +1,7 @@
 # Quran Scan Reader — Phase 9 (native Android / offline-first development source)
 
+See [the current development handoff](docs/NEXT_STEPS.md) for source checkpoints, Actions evidence, and remaining device/asset gates.
+
 **بِسْمِ اللّٰهِ الرَّحْمَٰنِ الرَّحِيمِ**
 
 This Android Studio **source** project is not a complete verified Quran reader and

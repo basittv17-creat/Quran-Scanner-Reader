@@ -13,10 +13,12 @@ for path in root.rglob('*.gradle.kts'):
     source = path.read_text()
     for version in re.findall(r'(?:implementation|testImplementation)\("[^"\n]+:([^:"\n]+)"\)', source):
         assert not any(x in version.lower() for x in ('+', 'latest', 'snapshot', '[', '(')), (path,version)
-for path in (root/'.github/workflows').glob('*.yml'):
+for path in (root/'.github/workflows').glob('*.y*ml'):
     text = path.read_text()
+    for action in re.findall(r'^\s*(?:-\s*)?uses:\s*([^\s#]+)', text, re.MULTILINE):
+        assert re.fullmatch(r'[\w./-]+@[0-9a-f]{40}', action), (path, action)
     assert not re.search(r'\b(?:assemble\w*|bundle(?:Debug|Release)|package(?:Debug|Release))\b', text), path
     assert ':app:testDebugUnitTest' in text
     assert ':app:lintDebug' in text
 assert not list(root.rglob('*.apk')) and not list(root.rglob('*.aab'))
-print('PASS: offline manifest, fixed dependency versions, compile/test/lint workflow and no Android packages')
+print('PASS: offline manifest, fixed dependency versions, pinned Actions, compile/test/lint workflow and no Android packages')

@@ -32,7 +32,7 @@ Deferred until separate Android package/device-test authorization:
 - Tap a page to focus/meter. Confirm darker/brighter steps stop at camera-supported limits and unsupported exposure reports a clear message.
 - Pause auto scan, restart the activity and verify pause persists; manual capture must still work. Rapid manual taps must not overlap the analyzer.
 - Confirm still ImageProxy closes before OCR, including conversion exceptions; test camera without three simultaneous output streams.
-- Reticle remains a visual guide for full-frame OCR; selectable crop, blur calibration and representative real-print measurements remain TODO.
+- Verify the selectable live crop against the image received by OCR for automatic analysis, manual stills and the analysis fallback. Calibrate low-light and low-detail guidance with representative real prints.
 
 Compilation and lint cannot establish these camera runtime outcomes.
 
@@ -50,4 +50,4 @@ New source checks do not close these manual gates:
 - Rotate/recreate Recitation: selected verse/word and preferred mode restore; playback and verse confirmation do not. Confirm before every new verse; a timeline beyond recording duration must be rejected.
 - Check all recitation controls, MP3 seeking/highlights, accessibility, Arabic fonts and translated strings on device. Complete localization remains TODO.
 
-No APK/AAB was generated to perform these checks. Live reticle coordinate mapping and calibrated blur/lighting guidance remain implementation work, not completed features.
+No APK/AAB was generated to perform these checks. Live reticle coordinate mapping has geometry tests. Calibrate light and detail guidance and verify camera alignment on representative devices.
