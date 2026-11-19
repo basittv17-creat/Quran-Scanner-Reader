@@ -136,4 +136,5 @@
     <string name="recitation_no_exact_timings">لفظ الگ سے نہیں چل سکتا کیونکہ درست اوقات موجود نہیں۔</string>
     <string name="recitation_no_audio">مقامی آڈیو موجود نہیں۔ اجازت یافتہ اور جانچا ہوا MP3 پیک درآمد کریں۔</string>
     <string name="recitation_verifying_audio">مقامی ریکارڈنگ کی جانچ جاری ہے…</string>
+    <string name="gallery_scan_error">تصویر اسکین نہیں ہو سکی۔ واپس جا کر دوسرا حصہ منتخب کریں یا چھوٹی تصویر آزمائیں۔</string>
 </resources>

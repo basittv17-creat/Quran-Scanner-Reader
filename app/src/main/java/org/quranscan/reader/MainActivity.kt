@@ -3,7 +3,6 @@ package org.quranscan.reader
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
@@ -16,7 +15,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.core.view.GravityCompat
 import org.quranscan.reader.core.CropBounds
-import org.quranscan.reader.core.ImageDecodeLimits
+import org.quranscan.reader.core.GalleryImageState
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.core.VerseCandidates
 import org.quranscan.reader.core.VerseId
@@ -39,7 +38,11 @@ class MainActivity : Activity() {
     private val panel = Color.rgb(12, 91, 71)
     private val worker = Executors.newSingleThreadExecutor()
     private val pickImage = 101
-    private var scanToken = 0
+    @Volatile private var scanToken = 0
+    private var galleryBusy = false
+    private var galleryScanScreen = false
+    private var reopenGalleryOnStart = false
+    private var galleryStarted = false
     private var galleryUri: Uri? = null
     private var galleryBitmap: Bitmap? = null
     private var galleryCrop: GalleryCropView? = null
@@ -54,12 +57,12 @@ class MainActivity : Activity() {
         profile = runCatching {
             OfflineArabicOcr.Profile.valueOf(getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getString("profile", "AUTO")!!)
         }.getOrDefault(OfflineArabicOcr.Profile.AUTO)
-        val restoredUri = savedInstanceState?.getString("gallery_uri")?.let(Uri::parse)
-        val restoredCrop = savedInstanceState?.getIntArray("gallery_selection")
-            ?.takeIf { it.size == 4 }
-            ?.let { CropBounds(it[0], it[1], it[2], it[3]) }
+        val restoredUri = savedInstanceState?.getString("gallery_uri")?.takeIf { galleryUriScheme(it) }?.let(Uri::parse)
+        val restoredCrop = GalleryImageState.savedSelection(savedInstanceState?.getIntArray("gallery_selection"))
         if (restoredUri != null) {
-            openGalleryImage(restoredUri, restoredCrop)
+            galleryUri = restoredUri
+            gallerySelection = restoredCrop
+            reopenGalleryOnStart = true
             return
         }
         when (savedInstanceState?.getString("destination")) {
@@ -80,6 +83,24 @@ class MainActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
 
+    override fun onStart() {
+        super.onStart()
+        galleryStarted = true
+        if (reopenGalleryOnStart) {
+            galleryUri?.let { openGalleryImage(it, gallerySelection) }
+        }
+    }
+
+    override fun onStop() {
+        galleryStarted = false
+        if (galleryBusy) {
+            scanToken++
+            galleryBusy = false
+            reopenGalleryOnStart = true
+        }
+        super.onStop()
+    }
+
     override fun onDestroy() {
         scanToken++
         releaseDesignPreview()
@@ -88,13 +109,15 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun screen(title: String, scrollable: Boolean = true, page: Destination = Destination.HOME) {
+    private fun screen(title: String, scrollable: Boolean = true, page: Destination = Destination.HOME, keepGallery: Boolean = false) {
         destination = page
         scanToken++ // Navigation invalidates pending gallery results.
         releaseDesignPreview()
         releaseGalleryPreview()
-        galleryUri = null
-        gallerySelection = null
+        galleryBusy = false
+        galleryScanScreen = false
+        reopenGalleryOnStart = false
+        if (!keepGallery) clearGalleryState()
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
@@ -233,20 +256,69 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK || requestCode != pickImage) return
-        val uri = data?.data ?: return
-        openGalleryImage(uri)
+        val uri = data?.data
+        if (uri == null || !galleryUriScheme(uri.toString())) {
+            message(getString(R.string.gallery_open_error))
+            return
+        }
+        retainGalleryPermission(uri, data.flags)
+        if (galleryStarted) {
+            openGalleryImage(uri)
+        } else {
+            galleryUri = uri
+            gallerySelection = null
+            reopenGalleryOnStart = true
+        }
+    }
+
+    private fun galleryUriScheme(value: String): Boolean =
+        Uri.parse(value).let { it.scheme == "content" && !it.authority.isNullOrEmpty() }
+
+    private fun retainGalleryPermission(uri: Uri, flags: Int) {
+        val previous = preferences.getString(GALLERY_GRANT, null)
+        if (previous != uri.toString()) releaseGalleryPermission()
+        val read = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        if (flags and read == 0 || flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION == 0) return
+        try {
+            contentResolver.takePersistableUriPermission(uri, read)
+            preferences.edit().putString(GALLERY_GRANT, uri.toString()).apply()
+        } catch (_: SecurityException) {
+            // The temporary grant may still allow previewing this image.
+        }
+    }
+
+    private fun releaseGalleryPermission() {
+        val uri = preferences.getString(GALLERY_GRANT, null) ?: return
+        try {
+            contentResolver.releasePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: SecurityException) {
+            // The provider may already have withdrawn the grant.
+        }
+        preferences.edit().remove(GALLERY_GRANT).apply()
+    }
+
+    private fun clearGalleryState() {
+        galleryUri = null
+        gallerySelection = null
+        releaseGalleryPermission()
     }
 
     private fun openGalleryImage(uri: Uri, selection: CropBounds? = null) {
-        screen(getString(R.string.gallery_opening))
+        screen(getString(R.string.gallery_opening), keepGallery = true)
         galleryUri = uri
         gallerySelection = selection
+        galleryBusy = true
         val token = scanToken
         label(getString(R.string.gallery_preparing), 16)
-        worker.execute {
-            val bitmap = decodePreview(uri)
+        action(getString(R.string.gallery_cancel)) { home() }
+        galleryWorker.execute {
+            if (token != scanToken) return@execute
+            val bitmap = decodeGalleryPreview(contentResolver, uri) { token == scanToken }
             runOnUiThread {
-                if (token != scanToken || isFinishing || isDestroyed) { bitmap?.recycle(); return@runOnUiThread }
+                if (token != scanToken || isFinishing || isDestroyed) {
+                    bitmap?.recycle()
+                    return@runOnUiThread
+                }
                 if (bitmap == null) {
                     message(getString(R.string.gallery_open_error))
                     home()
@@ -254,61 +326,17 @@ class MainActivity : Activity() {
             }
         }
     }
-    private fun decodePreview(uri: Uri): Bitmap? {
-        return try {
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-            val sample = ImageDecodeLimits.sampleSize(bounds.outWidth, bounds.outHeight, 2048)
-            val orientation = runCatching {
-                contentResolver.openInputStream(uri)?.use {
-                    androidx.exifinterface.media.ExifInterface(it).getAttributeInt(
-                        androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, 1
-                    )
-                }
-            }.getOrNull() ?: 1
-            val decoded = contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
-            } ?: return null
-            val matrix = android.graphics.Matrix()
-            when (orientation) {
-                2 -> matrix.setScale(-1f, 1f)
-                3 -> matrix.setRotate(180f)
-                4 -> matrix.setScale(1f, -1f)
-                5 -> { matrix.setRotate(90f); matrix.postScale(-1f, 1f) }
-                6 -> matrix.setRotate(90f)
-                7 -> { matrix.setRotate(270f); matrix.postScale(-1f, 1f) }
-                8 -> matrix.setRotate(270f)
-            }
-            if (matrix.isIdentity) return decoded
-            var transformed: Bitmap? = null
-            try {
-                transformed = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
-                transformed
-            } finally {
-                if (transformed !== decoded) decoded.recycle()
-            }
-        } catch (_: Exception) {
-            null
-        } catch (_: OutOfMemoryError) {
-            null
-        }
-    }
 
     private fun previewGalleryCrop(uri: Uri, bitmap: Bitmap, selection: CropBounds?) {
-        screen(getString(R.string.gallery_select_text), scrollable = false)
+        screen(getString(R.string.gallery_select_text), scrollable = false, keepGallery = true)
         galleryUri = uri
         galleryBitmap = bitmap
         label(getString(R.string.gallery_crop_help), 15)
         val crop = GalleryCropView(this).apply { setImage(bitmap, selection) }
         galleryCrop = crop
         root.addView(crop, LinearLayout.LayoutParams(-1, 0, 1f))
-        action(getString(R.string.gallery_scan_crop)) {
-            val selected = runCatching { crop.croppedBitmap() }.getOrNull()
-            if (selected == null) message(getString(R.string.gallery_crop_error))
-            else startGalleryScan(uri, selected, crop.selectedBounds())
-        }
-        action(getString(R.string.gallery_scan_full)) { startGalleryScan(uri, bitmap, CropBounds(0, 0, bitmap.width, bitmap.height)) }
+        action(getString(R.string.gallery_scan_crop)) { startGalleryScan(uri, bitmap, crop.selectedBounds(), true) }
+        action(getString(R.string.gallery_scan_full)) { startGalleryScan(uri, bitmap, crop.selectedBounds(), false) }
         action(getString(R.string.gallery_cancel)) { home() }
     }
 
@@ -319,41 +347,46 @@ class MainActivity : Activity() {
         galleryBitmap = null
     }
 
-    private fun startGalleryScan(uri: Uri, bitmap: Bitmap, selection: CropBounds) {
-        if (galleryBitmap === bitmap) galleryBitmap = null // Transfer ownership to the OCR callback.
-        scan(uri, bitmap, selection)
-    }
-
-    private fun scan(uri: Uri, bitmap: Bitmap, selection: CropBounds) {
-        screen(getString(R.string.gallery_offline_ocr))
+    private fun startGalleryScan(uri: Uri, bitmap: Bitmap, selection: CropBounds, cropToSelection: Boolean) {
+        if (galleryBitmap !== bitmap) return
+        galleryBitmap = null // The gallery worker owns the detached preview.
+        screen(getString(R.string.gallery_offline_ocr), keepGallery = true)
+        galleryScanScreen = true
         galleryUri = uri
         gallerySelection = selection
+        galleryBusy = true
         val token = scanToken
+        val scanProfile = profile
         label(getString(R.string.gallery_ocr_in_progress), 17, gold, true)
-        label("Profile: $profile   •   All processing happens on your phone", 13)
-        val scanImage = ImageView(this).apply {
-            setImageBitmap(bitmap)
-            contentDescription = "Selected area for offline OCR"
-            adjustViewBounds = true
-            scaleType = ImageView.ScaleType.FIT_CENTER
-        }
-        root.addView(scanImage, LinearLayout.LayoutParams(-1, (180 * resources.displayMetrics.density).toInt()))
+        label("Profile: $scanProfile   •   All processing happens on your phone", 13)
         val progress = ProgressBar(this)
         root.addView(progress)
         action(getString(R.string.nav_home)) { home() }
-        worker.execute {
-            val response = runCatching {
-                val ocr = OfflineArabicOcr(applicationContext).read(bitmap, profile)
-                val db = OfflineCorpus(applicationContext)
-                val candidates = if (db.isComplete()) VerseCandidates.suggest(ocr.rawUnverifiedText, db.asMap())
-                    else emptyList()
-                Triple(ocr, candidates, db.isComplete())
+        galleryWorker.execute {
+            var input = bitmap
+            val response = try {
+                if (token != scanToken) return@execute
+                runCatching {
+                    if (cropToSelection) {
+                        input = Bitmap.createBitmap(bitmap, selection.left, selection.top,
+                            selection.width, selection.height)
+                    }
+                    if (token != scanToken) return@execute
+                    val ocr = OfflineArabicOcr(applicationContext).read(input, scanProfile)
+                    if (token != scanToken) return@execute
+                    val db = OfflineCorpus(applicationContext)
+                    val complete = db.isComplete()
+                    val candidates = if (complete) VerseCandidates.suggest(ocr.rawUnverifiedText, db.asMap())
+                        else emptyList()
+                    Triple(ocr, candidates, complete)
+                }
+            } finally {
+                if (input !== bitmap) input.recycle()
+                bitmap.recycle()
             }
             runOnUiThread {
-                scanImage.setImageDrawable(null)
-                bitmap.recycle()
                 if (token != scanToken || isFinishing || isDestroyed) return@runOnUiThread
-                root.removeView(scanImage)
+                galleryBusy = false
                 root.removeView(progress)
                 response.onSuccess { (ocr, candidates, complete) ->
                     if (ocr.rawUnverifiedText.isBlank()) {
@@ -382,7 +415,10 @@ class MainActivity : Activity() {
                     }
                     label(getString(R.string.scan_processing_summary, ocr.variantsChecked, ocr.elapsedMs), 12)
                     ocr.quality.guidance(this)?.let { label(it, 13) }
-                }.onFailure { label("OCR failed safely: ${it.message ?: "Unknown error"}", 14, gold) }
+                }.onFailure {
+                    label(getString(R.string.gallery_scan_error), 14, gold)
+                }
+                action(getString(R.string.nav_back)) { openGalleryImage(uri, selection) }
             }
         }
     }
@@ -445,8 +481,10 @@ class MainActivity : Activity() {
         destination = Destination.PREVIEW
         scanToken++
         releaseGalleryPreview()
-        galleryUri = null
-        gallerySelection = null
+        galleryBusy = false
+        galleryScanScreen = false
+        reopenGalleryOnStart = false
+        clearGalleryState()
         releaseDesignPreview()
         val web = android.webkit.WebView(this)
         designPreview = web
@@ -481,5 +519,18 @@ class MainActivity : Activity() {
 
     private fun message(text: String) { Toast.makeText(this, text, Toast.LENGTH_LONG).show() }
     @Deprecated("Prototype navigation")
-    override fun onBackPressed() { if (::drawer.isInitialized && drawer.isDrawerOpen(GravityCompat.START)) drawer.closeDrawers() else home() }
+    override fun onBackPressed() {
+        if (designPreview == null && ::drawer.isInitialized && drawer.isDrawerOpen(GravityCompat.START)) {
+            drawer.closeDrawers()
+        } else if (galleryScanScreen && galleryUri != null) {
+            openGalleryImage(requireNotNull(galleryUri), gallerySelection)
+        } else {
+            home()
+        }
+    }
+
+    private companion object {
+        const val GALLERY_GRANT = "gallery_read_grant"
+        val galleryWorker = Executors.newSingleThreadExecutor()
+    }
 }

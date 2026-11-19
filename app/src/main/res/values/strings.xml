@@ -134,4 +134,5 @@
     <string name="recitation_no_exact_timings">Cannot isolate word: valid word timings are missing.</string>
     <string name="recitation_no_audio">No local audio file: import a licensed, checked MP3 pack.</string>
     <string name="recitation_verifying_audio">Checking the local recording…</string>
+    <string name="gallery_scan_error">Unable to scan the image. Go back to try a different selection or choose a smaller image.</string>
 </resources>

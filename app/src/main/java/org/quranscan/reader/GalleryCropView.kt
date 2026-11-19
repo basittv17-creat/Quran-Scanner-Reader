@@ -10,6 +10,7 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import org.quranscan.reader.core.CropBounds
+import org.quranscan.reader.core.GalleryImageState
 
 /** Fit-center preview with selection mapped back to the bounded decoded image. */
 class GalleryCropView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
@@ -35,10 +36,7 @@ class GalleryCropView @JvmOverloads constructor(context: Context, attrs: Attribu
 
     fun setImage(bitmap: Bitmap, restoredSelection: CropBounds? = null) {
         image = bitmap
-        selection = restoredSelection?.takeIf {
-            it.left >= 0 && it.top >= 0 && it.right <= bitmap.width && it.bottom <= bitmap.height &&
-                it.width >= 16 && it.height >= 16
-        } ?: CropBounds(0, 0, bitmap.width, bitmap.height)
+        selection = GalleryImageState.selectionFor(bitmap.width, bitmap.height, restoredSelection)
         requestLayout()
         invalidate()
     }
@@ -96,7 +94,4 @@ class GalleryCropView @JvmOverloads constructor(context: Context, attrs: Attribu
     override fun performClick(): Boolean { super.performClick(); return true }
 
     fun selectedBounds(): CropBounds = selection
-
-    fun croppedBitmap(): Bitmap = Bitmap.createBitmap(image, selection.left, selection.top,
-        selection.width, selection.height)
 }
