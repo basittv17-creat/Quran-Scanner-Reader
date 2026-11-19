@@ -95,4 +95,5 @@
     <string name="live_pause_auto">Pause automatic scanning</string>
     <string name="live_darker">Darker</string>
     <string name="live_brighter">Brighter</string>
+    <string name="gallery_crop_preview_description">Image crop preview. Drag to select text, or use Scan full image.</string>
 </resources>

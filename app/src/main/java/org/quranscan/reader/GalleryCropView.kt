@@ -30,7 +30,7 @@ class GalleryCropView @JvmOverloads constructor(context: Context, attrs: Attribu
 
     init {
         isFocusable = true
-        contentDescription = "Image crop preview. Drag to select text, or use Scan full image."
+        contentDescription = context.getString(R.string.gallery_crop_preview_description)
     }
 
     fun setImage(bitmap: Bitmap, restoredSelection: CropBounds? = null) {

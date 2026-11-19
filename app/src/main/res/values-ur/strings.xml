@@ -97,4 +97,5 @@
     <string name="live_pause_auto">خودکار اسکین روکیں</string>
     <string name="live_darker">روشنی کم کریں</string>
     <string name="live_brighter">روشنی بڑھائیں</string>
+    <string name="gallery_crop_preview_description">تصویر کا تراشنے والا پیش منظر۔ متن منتخب کرنے کے لیے انگلی پھیریں، یا پوری تصویر اسکین کریں۔</string>
 </resources>
