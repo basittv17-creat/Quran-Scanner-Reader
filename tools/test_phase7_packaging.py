@@ -20,7 +20,7 @@ with tempfile.TemporaryDirectory() as td:
     try: build(source,root/'invalid.zip','test','synthetic','none',False)
     except ValueError: pass
     else: raise AssertionError('invalid Quran verse number accepted')
-    for label, attribution in (('tab', 'Invalid\\tValue'), ('newline', 'Invalid\\nValue'), ('control', 'Invalid\\x00Value')):
+    for label, attribution in (('tab', 'Invalid\tValue'), ('newline', 'Invalid\nValue'), ('control', 'Invalid\x00Value')):
         try:
             build(source, root / f'{label}.zip', attribution, 'synthetic', 'none', False)
         except ValueError:
