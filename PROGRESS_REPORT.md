@@ -1,5 +1,9 @@
 # Quran Scanner Reader — source delivery report
 
+## Current source and validation
+
+The [development handoff](docs/NEXT_STEPS.md) records the live crop, OCR diagnostics, gallery restore, audio safety, localized navigation, source-validation pins, and local preview checkpoints. Historical results follow.
+
 Date: 19 November 2026. This is an incomplete development delivery, not a release-ready application. No APK/AAB was generated. All 59 original baseline files remain present; history is retained.
 
 ## Current verified continuation (supersedes older counts below)
