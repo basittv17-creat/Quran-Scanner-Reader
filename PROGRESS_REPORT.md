@@ -67,3 +67,11 @@ CI-fix and corpus links were emailed to basittv17@gmail.com. A final checked sou
 ## What is needed to finish
 
 See `docs/EXTERNAL_ASSETS_AND_QA.md`. Required: a complete authentic recording set with public repository/ZIP redistribution rights, licensed timings bound to those exact recordings, qualified listening/text/display reviewers, representative legally usable real Mushaf images, and Android device QA. No audio/timing data were fabricated. No uncertain OCR triggers automatic recitation. Generic script profile names are not accuracy guarantees. Unit/static tests cannot certify real Quran OCR, pronunciation or word alignment.
+
+## Final observed source validation
+
+Source commit: https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/db655274d5d3a3b53c257e580d791a81a88d5986
+
+Actions: https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44466055230 — **completed / success**. Kotlin compilation, resources, Python/pure Kotlin checks and source policy passed. **7 JVM tests, 0 failures/errors/skipped; lint 0 errors and 36 warnings. No APK/AAB found.** These final refinements reduced warnings from 43 to 36 without suppression. Remaining warnings concern fixed older dependencies/target API and translation/locale handling; the full issue list is in the Actions report step. No runtime/device/recording-quality certification is implied.
+
+The following commit only updates reports; application source remains the validated db65527 source.
