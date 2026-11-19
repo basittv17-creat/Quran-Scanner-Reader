@@ -201,6 +201,8 @@ class RecitationActivity : ComponentActivity() {
             player.stop()
             importAudio.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
         }
+        button(getString(R.string.choose_audio_pack)) { managePacks(false) }
+        button(getString(R.string.remove_audio_pack)) { managePacks(true) }
         button("▣ لفظ بہ لفظ Timing ZIP امپورٹ کریں") {
             player.stop()
             importTiming.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
@@ -208,6 +210,57 @@ class RecitationActivity : ComponentActivity() {
         status = heading("Checking local resources…", 14f, gold)
         heading("SHA صرف فائل کی سالمیت چیک کرتا ہے؛ قاری، تلفظ، اعراب اور لفظی اوقات کی انسانی تصدیق باقی رہتی ہے۔", 13f)
         button("← Home") { finish() }
+    }
+
+    private fun managePacks(remove: Boolean) {
+        player.stop()
+        confirmation.isChecked = false
+        importBusy = true
+        executor.execute {
+            val result = runCatching { audioStore.installedPacks() to audioStore.selectedPackId() }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                importBusy = false
+                result.onSuccess { (all, selected) ->
+                    val options = if (remove) all.filter { it.id != selected } else all.filter { it.manifest != null }
+                    if (options.isEmpty()) { status.setText(R.string.no_selectable_pack); return@onSuccess }
+                    val labels = options.map { pack ->
+                        val data = pack.manifest
+                        if (data == null) getString(R.string.corrupt_audio_pack)
+                        else "${data.reciter} · ${data.entries.size} clips\n${data.source}" +
+                            if (pack.id == selected) " ✓" else ""
+                    }.toTypedArray()
+                    android.app.AlertDialog.Builder(this)
+                        .setTitle(if (remove) R.string.remove_audio_pack else R.string.choose_audio_pack)
+                        .setItems(labels) { _, index ->
+                            val pack = options[index]
+                            if (remove) android.app.AlertDialog.Builder(this)
+                                .setMessage(getString(R.string.confirm_remove_pack, labels[index]))
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .setPositiveButton(R.string.remove_pack) { _, _ -> changePack(pack.id, true) }.show()
+                            else changePack(pack.id, false)
+                        }.setNegativeButton(android.R.string.cancel, null).show()
+                }.onFailure { status.text = "Cannot read local packs: ${it.message}" }
+            }
+        }
+    }
+
+    private fun changePack(id: String, remove: Boolean) {
+        player.stop()
+        confirmation.isChecked = false
+        selectionToken++
+        importBusy = true
+        executor.execute {
+            val result = runCatching {
+                if (remove) audioStore.removeInactivePack(id) else audioStore.selectPack(id)
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                importBusy = false
+                result.onSuccess { loadSelection() }
+                    .onFailure { status.text = "Audio pack change rejected: ${it.message}" }
+            }
+        }
     }
 
     private fun moveAyah(direction: Int) {
@@ -262,8 +315,8 @@ class RecitationActivity : ComponentActivity() {
                     verseView.text = verse
                     status.text = when {
                         audio?.entries?.get(key) == null -> "No licensed local ayah recording installed for $s:$a."
-                        windows == null -> "Ayah audio exists, but no validated word timings for this exact audio/text."
-                        else -> "${windows.size} user-supplied timing windows loaded; listening review is still required."
+                        windows == null -> "${audio?.reciter}: ayah audio exists, but no validated word timings for this exact audio/text."
+                        else -> "${audio?.reciter}: ${windows.size} user-supplied timing windows loaded; listening review is still required."
                     }
                 }.onFailure {
                     status.text = "Local verse loading failed safely: ${it.message}"

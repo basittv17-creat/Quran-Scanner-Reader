@@ -16,15 +16,31 @@ import java.util.zip.ZipInputStream
  */
 class OfflineAudioPackStore(private val context: Context) {
     private val root get() = File(context.filesDir, "offline_ayah_audio")
-    private val active get() = PackActivation.recover(root)
+    private val catalog get() = AudioPackCatalog(root)
+    private val active get() = catalog.selectedDirectory()
+    data class InstalledPack(val id: String, val manifest: AudioPackManifest?)
+
+    fun installedPacks(): List<InstalledPack> = catalog.directories().map { (id, folder) ->
+        InstalledPack(id, manifestAt(folder))
+    }
+    fun selectedPackId(): String = catalog.selectedId()
+    fun selectPack(id: String) {
+        require(manifestAt(catalog.directory(id)) != null) { "Selected pack is corrupt or incomplete" }
+        catalog.select(id)
+    }
+    fun removeInactivePack(id: String) = catalog.removeInactive(id)
     private val allowedClip = Regex("[0-9]{3}_[0-9]{3}\\.mp3")
 
-    fun installedManifest(): AudioPackManifest? = runCatching {
-        val manifestFile = File(active, "manifest.tsv")
-        if (!manifestFile.isFile) null else {
+    fun installedManifest(): AudioPackManifest? = runCatching { manifestAt(active) }.getOrNull()
+
+    private fun manifestAt(folder: File): AudioPackManifest? = runCatching {
+        val manifestFile = File(folder, "manifest.tsv")
+        if (!manifestFile.isFile || manifestFile.length() > 1024 * 1024L) null else {
             val manifest = AudioPackFormat.parse(manifestFile.readText(Charsets.UTF_8))
-            // Check files exist here; hashes were checked at import, not on each launch.
-            if (manifest.entries.values.any { !File(active, it.filename).isFile }) null else manifest
+            if (manifest.entries.values.any {
+                val file = File(folder, it.filename)
+                !file.isFile || file.length() !in 1..8L * 1024 * 1024
+            }) null else manifest
         }
     }.getOrNull()
 
@@ -35,6 +51,7 @@ class OfflineAudioPackStore(private val context: Context) {
     }
 
     fun installArchive(uri: Uri): AudioPackManifest {
+        catalog.requireCapacity()
         check(root.isDirectory || root.mkdirs()) { "Unable to create app-private audio folder" }
         val stage = File(root, "stage_${UUID.randomUUID()}")
         check(stage.mkdir()) { "Unable to create staging directory" }
@@ -97,7 +114,7 @@ class OfflineAudioPackStore(private val context: Context) {
                 require(actual == item.sha256) { "Audio file hash mismatch: ${item.filename}" }
             }
             if (Thread.currentThread().isInterrupted) throw InterruptedException("Import cancelled")
-            PackActivation.activate(root, stage)
+            catalog.publishValidated(stage)
             return manifest
         } finally {
             if (stage.exists()) stage.deleteRecursively()

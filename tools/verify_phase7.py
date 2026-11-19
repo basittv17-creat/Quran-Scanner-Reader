@@ -27,7 +27,7 @@ app=(base/'RecitationActivity.kt').read_text()
 store=(base/'audio/OfflineAudioPackStore.kt').read_text()
 player=(base/'audio/OfflineAyahPlayer.kt').read_text()
 assert all(term in app for term in ['ActivityResultContracts.OpenDocument','playFull','corpus.isComplete()'])
-assert all(term in store for term in ['ZipInputStream','PackActivation.activate(root, stage)','SHA-256','FileOutputStream','1500L'])
+assert all(term in store for term in ['ZipInputStream','catalog.publishValidated(stage)','SHA-256','FileOutputStream','1500L'])
 assert 'android.media.MediaPlayer' in player
 subprocess.run(['python3', str(root/'tools/verify_corpus_provenance.py')], check=True)
 assert (root/'app/src/main/assets/audio/README.txt').exists()

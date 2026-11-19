@@ -9,4 +9,11 @@
     <string name="mode_follow_words">مکمل آیت اور لفظی ہائی لائٹ</string>
     <string name="mode_selected_word">منتخب لفظ</string>
     <string name="current_recitation_mode">تلاوت کا موڈ: %1$s</string>
+    <string name="choose_audio_pack">قاری / محفوظ آڈیو پیک منتخب کریں</string>
+    <string name="remove_audio_pack">غیر فعال آڈیو پیک حذف کریں</string>
+    <string name="no_selectable_pack">کوئی موزوں آڈیو پیک موجود نہیں۔ حذف کرنے کے لیے پہلے دوسرا پیک منتخب کریں۔</string>
+    <string name="corrupt_audio_pack">نامکمل یا خراب آڈیو پیک</string>
+    <string name="confirm_remove_pack">یہ مقامی آڈیو پیک حذف کریں؟
+%1$s</string>
+    <string name="remove_pack">حذف کریں</string>
 </resources>

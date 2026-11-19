@@ -306,7 +306,7 @@ class MainActivity : Activity() {
         }
         action("Recitation mode and audio pack / reciter settings") { recitation() }
         val availableMb = android.os.StatFs(filesDir.absolutePath).availableBytes / (1024 * 1024)
-        label("Internal storage available: $availableMb MB. Audio packs are limited to 1500 MB; timing packs to 40 MB. The installed pack identifies its reciter; no recitation assets are bundled.", 14)
+        label("Internal storage available: $availableMb MB. Audio packs are limited to 1500 MB; timing packs to 40 MB. Up to eight audio packs can be retained; select a reciter or remove an inactive pack in Recitation. No recordings are bundled.", 14)
         label("Privacy: local processing only; selected images are not uploaded. Audio/timings are stored privately. Cloud backup is disabled. Manage or remove stored data in Android app settings.", 14)
         label("Bundled Arabic model: tessdata_fast / ara.traineddata, Apache-2.0.  No INTERNET permission.", 14)
         action("Back") { menu() }
