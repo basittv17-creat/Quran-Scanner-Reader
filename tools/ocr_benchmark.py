@@ -142,6 +142,20 @@ def evaluate(rows, require_provenance=False):
     return report
 
 
+def read_rows(source):
+    # JSONL uses LF delimiters, even when a JSON string contains U+2028.
+    for number, line in enumerate(source.split(b'\n'), 1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line.decode('utf-8'))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f'Invalid JSONL at line {number}: {exc}') from exc
+        if not isinstance(row, dict):
+            raise ValueError(f'Expected a JSON object at line {number}')
+        yield row
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('samples', type=Path)
@@ -150,8 +164,10 @@ def main():
                         help='require script, publisher, device, app commit, model hash and profile on every row')
     args = parser.parse_args()
     source = args.samples.read_bytes()
-    rows = (json.loads(line) for line in source.decode('utf-8').splitlines() if line.strip())
-    report = evaluate(rows, require_provenance=args.require_provenance)
+    try:
+        report = evaluate(read_rows(source), require_provenance=args.require_provenance)
+    except ValueError as exc:
+        parser.error(str(exc))
     report['input_sha256'] = hashlib.sha256(source).hexdigest()
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(f"Scored {report['samples']} samples; report: {args.output}")

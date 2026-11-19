@@ -1,6 +1,12 @@
 """Synthetic metric tests only; these do not measure Quran OCR accuracy."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
-from ocr_benchmark import distance, evaluate
+from ocr_benchmark import distance, evaluate, read_rows
 
 
 class BenchmarkTests(unittest.TestCase):
@@ -68,6 +74,78 @@ class BenchmarkTests(unittest.TestCase):
             evaluate([self.sample()], require_provenance=True)
         with self.assertRaises(ValueError):
             evaluate([self.sample(script='madani')])
+
+
+    def test_malformed_jsonl_reports_physical_line(self):
+        for bad_line in (b'{', b'[]', b'null', bytes([255])):
+            with self.subTest(bad_line=bad_line), self.assertRaisesRegex(ValueError, 'line 3'):
+                list(read_rows(b'{}\r\n\n' + bad_line))
+
+    def test_missing_required_legacy_fields(self):
+        for field in self.sample():
+            row = self.sample()
+            del row[field]
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                evaluate([row])
+
+    def test_reference_bounds_duplicates_and_order(self):
+        for references in ([[114, 7]], [[1, 1], [1, 1]], [[1, 0]]):
+            with self.subTest(references=references), self.assertRaises(ValueError):
+                evaluate([self.sample(predicted_refs=references)])
+        report = evaluate([self.sample(expected_refs=[[1, 1], [1, 2]],
+                                       predicted_refs=[[1, 2], [1, 1]])])
+        self.assertEqual(report['by_printing']['synthetic']['false_positive_rate'], 1)
+
+    def test_duplicate_id_across_printings(self):
+        with self.assertRaisesRegex(ValueError, 'Duplicate sample_id'):
+            evaluate([self.sample(), self.sample(printing='other')])
+
+    def test_empty_ocr_and_abstention(self):
+        metrics = evaluate([self.sample(raw_ocr='', predicted_refs=[])])['by_printing']['synthetic']
+        self.assertEqual((metrics['char_edits'], metrics['word_edits']), (7, 2))
+        self.assertEqual((metrics['cer'], metrics['wer']), (1, 1))
+        self.assertEqual(metrics['abstention_rate'], 1)
+        self.assertEqual(metrics['false_positive_rate'], 0)
+
+    def test_mixed_export_in_either_order(self):
+        legacy = self.sample()
+        qualified = self.sample(sample_id='qualified', script='madani', publisher='fixture',
+                                device='device', app_commit='c'*40, model_sha256='b'*64, profile='auto')
+        for rows in ([legacy, qualified], [qualified, legacy]):
+            with self.assertRaisesRegex(ValueError, 'Do not mix'):
+                evaluate(rows)
+
+    def test_configuration_distinguishes_model_within_same_printing(self):
+        common = dict(script='madani', publisher='fixture', device='device',
+                      app_commit='c'*40, profile='auto')
+        report = evaluate([self.sample(model_sha256='b'*64, **common),
+                           self.sample(sample_id='second', model_sha256='d'*64,
+                                       predicted_refs=[], **common)])
+        self.assertEqual(report['by_script']['madani']['samples'], 2)
+        self.assertEqual(report['by_printing']['synthetic']['abstention_rate'], .5)
+        self.assertEqual([(row['model_sha256'], row['metrics']['abstentions'])
+                          for row in report['by_configuration']], [('b'*64, 0), ('d'*64, 1)])
+
+    def test_cli_hashes_original_bytes_and_preserves_unicode_counts(self):
+        row = self.sample(expected_text='é\u2028😀', raw_ocr='e\u0301\u2028😀')
+        source = ('\r\n' + json.dumps(row, ensure_ascii=False) + '\r\n').encode('utf-8')
+        with tempfile.TemporaryDirectory() as directory:
+            samples = Path(directory) / 'samples.jsonl'
+            output = Path(directory) / 'report.json'
+            samples.write_bytes(source)
+            command = [sys.executable, str(Path(__file__).with_name('ocr_benchmark.py')),
+                       str(samples), '--output', str(output)]
+            subprocess.run(command, check=True, capture_output=True)
+            report = json.loads(output.read_text(encoding='utf-8'))
+            self.assertEqual(report['input_sha256'], hashlib.sha256(source).hexdigest())
+            metrics = report['by_printing']['synthetic']
+            self.assertEqual((metrics['char_edits'], metrics['reference_characters']), (2, 3))
+            self.assertEqual((metrics['word_edits'], metrics['reference_words']), (1, 2))
+            samples.write_bytes(source + b'null\n')
+            invalid = subprocess.run(command, capture_output=True)
+            self.assertEqual(invalid.returncode, 2)
+            self.assertIn(b'line 3', invalid.stderr)
+            self.assertEqual(json.loads(output.read_text(encoding='utf-8')), report)
 
 
 if __name__ == '__main__': unittest.main()
