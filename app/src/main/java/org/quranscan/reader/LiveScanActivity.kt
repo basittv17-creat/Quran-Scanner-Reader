@@ -572,7 +572,8 @@ class LiveScanActivity : ComponentActivity() {
                 if (complete && candidates.isNotEmpty()) {
                     candidates.take(3).forEach { candidate ->
                         val btn = Button(this).apply {
-                            text = getString(R.string.scan_review_candidate, candidate.id.surah, candidate.id.ayah)
+                            val reference = getString(R.string.scan_candidate_reference, candidate.id.surah, candidate.id.ayah)
+                            text = getString(R.string.scan_review_candidate, reference)
                             isAllCaps = false
                             minHeight = dp(48)
                             setOnClickListener {
@@ -605,7 +606,8 @@ class LiveScanActivity : ComponentActivity() {
                         else -> R.string.gallery_possible_matches
                     })
                 ).joinToString("\n")
-                val summary = getString(R.string.scan_processing_summary, scan.variantsChecked, scan.elapsedMs)
+                val summary = resources.getQuantityString(R.plurals.scan_processing_summary, scan.variantsChecked,
+                    scan.variantsChecked, scan.elapsedMs)
                 showStatus(listOfNotNull(summary, scan.quality.guidance(this)).joinToString("\n"))
             }
         } catch (e: Exception) {

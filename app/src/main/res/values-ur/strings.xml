@@ -5,7 +5,10 @@
     <string name="live_crop_updated">اسکین کا حصہ بدل گیا ہے۔ ابھی اسکین کرنے کے لیے تصویر اسکین کریں کا بٹن استعمال کریں۔</string>
     <string name="scan_quality_low_light">منتخب حصہ تاریک لگ رہا ہے۔ روشنی بڑھا کر دوبارہ کوشش کریں۔</string>
     <string name="scan_quality_low_detail">منتخب حصے کی تفصیل کم ہے۔ کیمرا ساکن رکھیں، دوبارہ فوکس کریں یا زیادہ واضح تصویر منتخب کریں۔</string>
-    <string name="scan_processing_summary">او سی آر %2$d ملی سیکنڈ میں مکمل ہوا · %1$d طریقے آزمائے گئے</string>
+    <plurals name="scan_processing_summary">
+        <item quantity="one">او سی آر %2$d ملی سیکنڈ میں مکمل ہوا · %1$d طریقہ آزمایا گیا</item>
+        <item quantity="other">او سی آر %2$d ملی سیکنڈ میں مکمل ہوا · %1$d طریقے آزمائے گئے</item>
+    </plurals>
     <string name="confirm_verse">میں نے مکمل عربی متن اور سورت/آیت کا حوالہ اپنے قرآن سے ملا لیا ہے۔</string>
     <string name="confirm_before_play">تلاوت سے پہلے مکمل آیت اور حوالہ ملا کر تصدیق کریں۔</string>
     <string name="loading_local_verse">مقامی آیت اور آڈیو معلومات کھولی جا رہی ہیں…</string>
@@ -114,7 +117,7 @@
     <string name="gallery_no_corpus">مصدقہ قرآنی حوالہ دستیاب نہیں۔ تلاوت بند ہے۔</string>
     <string name="gallery_no_candidate">کوئی قابل اعتماد آیت نہیں ملی۔ متن کو مطبوعہ صفحے سے ملائیں۔</string>
     <string name="gallery_possible_matches">ممکنہ حوالے۔ انہیں مطبوعہ صفحے سے ملائیں۔</string>
-    <string name="scan_review_candidate">%1$d:%2$d کا موازنہ کر کے تصدیق کریں</string>
+    <string name="scan_review_candidate">%1$s کا موازنہ کر کے تصدیق کریں</string>
     <string name="live_camera_missing">اس آلے میں پچھلا کیمرہ نہیں ہے۔ ہوم سے گیلری اسکین استعمال کریں۔</string>
     <string name="live_camera_retry">کیمرہ دستیاب نہیں۔ دوبارہ کوشش کے لیے تصویر اسکین کریں یا ہوم سے گیلری اسکین استعمال کریں۔</string>
     <string name="live_permission_denied">براہ راست اسکین کے لیے کیمرے کی اجازت درکار ہے۔</string>

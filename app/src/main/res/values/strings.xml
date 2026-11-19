@@ -21,7 +21,10 @@
     <string name="live_crop_updated">Scan area updated. Use Scan photo to scan it now.</string>
     <string name="scan_quality_low_light">The selected area looks dark. Add light and try again.</string>
     <string name="scan_quality_low_detail">The selected area shows little detail. Hold the camera steady, refocus, or select a sharper photo.</string>
-    <string name="scan_processing_summary">OCR completed in %2$d ms · %1$d variants checked</string>
+    <plurals name="scan_processing_summary">
+        <item quantity="one">OCR completed in %2$d ms · %1$d variant checked</item>
+        <item quantity="other">OCR completed in %2$d ms · %1$d variants checked</item>
+    </plurals>
     <string name="scan_comparison_unverified">Unverified scanned text. Compare it with the complete ayah below.</string>
     <string name="canonical_ayah_reference">Canonical ayah %1$d:%2$d</string>
     <string name="nav_home">Home</string>
@@ -112,7 +115,7 @@
     <string name="gallery_no_corpus">Verified Quran reference data is unavailable. Recitation is disabled.</string>
     <string name="gallery_no_candidate">No reliable verse candidate. Compare the text with your printed page.</string>
     <string name="gallery_possible_matches">Possible references. Compare them with your printed page.</string>
-    <string name="scan_review_candidate">Review %1$d:%2$d and confirm manually</string>
+    <string name="scan_review_candidate">Review %1$s and confirm manually</string>
     <string name="live_camera_missing">This device has no rear camera. Use Gallery Scan from Home.</string>
     <string name="live_camera_retry">Camera unavailable. Tap Scan Photo to retry or use Gallery Scan from Home.</string>
     <string name="live_permission_denied">Camera permission is required for live scanning.</string>

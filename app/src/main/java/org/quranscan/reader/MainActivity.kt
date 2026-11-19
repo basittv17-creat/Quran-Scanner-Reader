@@ -410,12 +410,14 @@ class MainActivity : Activity() {
                     else {
                         label(getString(R.string.gallery_possible_matches), 14, gold)
                         candidates.forEach { c ->
-                            label(getString(R.string.scan_candidate_reference, c.id.surah, c.id.ayah), 15, gold)
+                            val reference = getString(R.string.scan_candidate_reference, c.id.surah, c.id.ayah)
+                            label(reference, 15, gold)
                             label(c.canonicalArabic, 17, gold, true)
-                            action(getString(R.string.scan_review_candidate, c.id.surah, c.id.ayah)) { recitation(c.id.surah, c.id.ayah, ocr.rawUnverifiedText) }
+                            action(getString(R.string.scan_review_candidate, reference)) { recitation(c.id.surah, c.id.ayah, ocr.rawUnverifiedText) }
                         }
                     }
-                    label(getString(R.string.scan_processing_summary, ocr.variantsChecked, ocr.elapsedMs), 12)
+                    label(resources.getQuantityString(R.plurals.scan_processing_summary, ocr.variantsChecked,
+                        ocr.variantsChecked, ocr.elapsedMs), 12)
                     ocr.quality.guidance(this)?.let { label(it, 13) }
                 }.onFailure {
                     label(getString(R.string.gallery_scan_error), 14, gold)
