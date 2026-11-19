@@ -13,6 +13,7 @@ def run(*args):
 
 run('python3', str(root / 'tools/test_source_policy.py'))
 run('python3', str(root / 'tools/test_import_tanzil.py'))
+run('python3', str(root / 'tools/test_corpus_provenance.py'))
 run('python3', str(root / 'tools/verify_phase7.py'))
 run('python3', str(root / 'tools/test_phase8_packaging.py'))
 
