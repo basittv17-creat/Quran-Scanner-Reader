@@ -30,6 +30,9 @@ class MainActivity : Activity() {
     private lateinit var root: LinearLayout
     private lateinit var drawer: DrawerLayout
     private val preferences by lazy { getSharedPreferences("quran_reader_settings", MODE_PRIVATE) }
+    private enum class Destination { HOME, SETTINGS, HELP, ABOUT, PREVIEW }
+
+    private var destination = Destination.HOME
     private var arabicSize = 25
     private val bg = Color.rgb(0, 65, 48)
     private val gold = Color.rgb(216, 173, 86)
@@ -55,10 +58,21 @@ class MainActivity : Activity() {
         val restoredCrop = savedInstanceState?.getIntArray("gallery_selection")
             ?.takeIf { it.size == 4 }
             ?.let { CropBounds(it[0], it[1], it[2], it[3]) }
-        if (restoredUri != null) openGalleryImage(restoredUri, restoredCrop) else home()
+        if (restoredUri != null) {
+            openGalleryImage(restoredUri, restoredCrop)
+            return
+        }
+        when (savedInstanceState?.getString("destination")) {
+            Destination.SETTINGS.name -> settings()
+            Destination.HELP.name -> help()
+            Destination.ABOUT.name -> about()
+            Destination.PREVIEW.name -> preview()
+            else -> home()
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("destination", destination.name)
         galleryUri?.let { outState.putString("gallery_uri", it.toString()) }
         (galleryCrop?.selectedBounds() ?: gallerySelection)?.let {
             outState.putIntArray("gallery_selection", intArrayOf(it.left, it.top, it.right, it.bottom))
@@ -74,7 +88,8 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun screen(title: String, scrollable: Boolean = true) {
+    private fun screen(title: String, scrollable: Boolean = true, page: Destination = Destination.HOME) {
+        destination = page
         scanToken++ // Navigation invalidates pending gallery results.
         releaseDesignPreview()
         releaseGalleryPreview()
@@ -99,7 +114,7 @@ class MainActivity : Activity() {
                 setOnClickListener { drawer.closeDrawers(); click() }
             }, LinearLayout.LayoutParams(-1, -2))
         }
-        side.addView(TextView(this).apply { text = "Quran Scan Reader"; textSize = 23f; setTextColor(gold) })
+        side.addView(TextView(this).apply { text = getString(R.string.reader_title); textSize = 23f; setTextColor(gold) })
         item(getString(R.string.nav_home)) { home() }
         item(getString(R.string.nav_camera)) { camera() }
         item(getString(R.string.nav_gallery)) { gallery() }
@@ -150,7 +165,7 @@ class MainActivity : Activity() {
     }
 
     private fun home() {
-        screen("☪ Quran Scan Reader")
+        screen(getString(R.string.reader_title))
         val token = scanToken
         val openingVerse = TextView(this).apply {
             visibility = View.GONE
@@ -374,59 +389,60 @@ class MainActivity : Activity() {
 
     private fun menu() { drawer.openDrawer(GravityCompat.START) }
     private fun settings() {
-        screen(getString(R.string.nav_settings))
-        label("OCR style selection (same generic Arabic model; script training and print testing pending)", 14)
-        action("OCR profile: $profile  — change") {
+        screen(getString(R.string.nav_settings), page = Destination.SETTINGS)
+        label(getString(R.string.settings_ocr_info), 14)
+        val profileLabel = when (profile) {
+            OfflineArabicOcr.Profile.AUTO -> R.string.profile_auto
+            OfflineArabicOcr.Profile.INDO_PAK -> R.string.profile_indo_pak
+            OfflineArabicOcr.Profile.MADANI -> R.string.profile_madani
+        }
+        action(getString(R.string.settings_profile, getString(profileLabel))) {
             val options = OfflineArabicOcr.Profile.entries
             profile = options[(options.indexOf(profile) + 1) % options.size]
             getSharedPreferences("quran_reader_settings", MODE_PRIVATE).edit()
                 .putString("profile", profile.name).apply()
             settings()
         }
-        action("Arabic text size: $arabicSize — change") {
+        action(getString(R.string.settings_text_size, arabicSize)) {
             arabicSize = if (arabicSize >= 37) 21 else arabicSize + 4
             preferences.edit().putInt("arabic_size", arabicSize).apply()
             settings()
         }
         val keepAwake = preferences.getBoolean("keep_screen_on", false)
-        action("Keep scanner screen awake: ${if (keepAwake) "On" else "Off"}") {
+        action(getString(R.string.settings_keep_awake, getString(if (keepAwake) R.string.settings_on else R.string.settings_off))) {
             preferences.edit().putBoolean("keep_screen_on", !keepAwake).apply()
             settings()
         }
         val autoPaused = preferences.getBoolean("auto_scan_paused", false)
-        action("Automatic camera scanning: ${if (autoPaused) "Paused" else "Enabled"}") {
+        action(getString(R.string.settings_auto_scan, getString(if (autoPaused) R.string.settings_paused else R.string.settings_enabled))) {
             preferences.edit().putBoolean("auto_scan_paused", !autoPaused).apply()
             settings()
         }
-        action("Recitation mode and audio pack / reciter settings") { recitation() }
+        action(getString(R.string.settings_recitation)) { recitation() }
         val availableMb = android.os.StatFs(filesDir.absolutePath).availableBytes / (1024 * 1024)
-        label("Internal storage available: $availableMb MB. Audio packs are limited to 1500 MB; timing packs to 40 MB. Up to eight audio packs can be retained; select a reciter or remove an inactive pack in Recitation. No recordings are bundled.", 14)
-        label("Privacy: local processing only; selected images are not uploaded. Audio/timings are stored privately. Cloud backup is disabled. Manage or remove stored data in Android app settings.", 14)
-        label("Bundled Arabic model: tessdata_fast / ara.traineddata, Apache-2.0.  No INTERNET permission.", 14)
-        action("Back") { menu() }
+        label(getString(R.string.settings_storage, availableMb), 14)
+        label(getString(R.string.reader_privacy), 14)
+        label(getString(R.string.settings_model), 14)
+        action(getString(R.string.nav_back)) { menu() }
     }
     private fun help() {
-        screen(getString(R.string.nav_help))
-        label("Live scan: allow camera permission, keep the page steady in good light, tap to focus, and drag across the preview to select the scan area. Darker/Brighter adjusts supported cameras. Pause auto still allows manual Scan photo.", 16)
-        label("Upload picture: choose a local, sharp image. Rotation is read from EXIF. Drag a selection around the text or scan the whole picture.", 16)
-        label("Every OCR result is unverified. Open a candidate, compare the complete canonical verse with your printed page and check the Surah/Ayah before pressing Play. No OCR result starts recitation automatically.", 16)
-        label("Recitation: import your legally obtained ayah MP3 ZIP. Word playback additionally needs reviewed timings for those exact recordings and this text. Missing or mismatched files disable playback/highlighting.", 16)
-        label("Privacy: images are processed locally in memory. No Internet permission, image uploads or analytics. Imported recordings and timing packs stay in app-private storage; Android app storage controls can remove them.", 16)
-        label("This development source has no validated Pakistani/Madani OCR accuracy or device certification. Arabic text follows Tanzil Uthmani v1.1; it does not reproduce a Pakistani 15-line page layout.", 15, gold)
+        screen(getString(R.string.nav_help), page = Destination.HELP)
+        label(getString(R.string.help_camera), 16)
+        label(getString(R.string.help_gallery), 16)
+        label(getString(R.string.help_review), 16)
+        label(getString(R.string.help_recitation), 16)
+        label(getString(R.string.reader_privacy), 16)
+        label(getString(R.string.help_validation), 15, gold)
         action(getString(R.string.nav_home)) { home() }
     }
 
     private fun about() {
-        screen(getString(R.string.nav_about))
-        label("Quran Scan Reader Phase 9 CameraX + Arabic OCR + local recitation engine baseline.\n\n" +
-            "OCR: Tesseract4Android + Arabic tessdata_fast (Apache-2.0).\n" +
-            "Canonical Quran source: Tanzil Uthmani v1.1 (CC BY 3.0), https://tanzil.net.\n" +
-            "Tanzil Uthmani v1.1 publisher text is bundled verbatim with integrity checks; independent scholarly and rendering review remains. Arabic OCR has not been benchmarked on actual Pakistani or Madani mushafs.\n" +
-            "Live CameraX preview and sampled OCR are implemented in source, but not yet tested on physical Android. " +
-            "A local ayah-audio importer and player are implemented, but no licensed recordings have been bundled. Word-level timestamp import and highlighting code exist; reviewed timing data and precise diacritic checking remain missing.", 14)
-        action("Back") { menu() }
+        screen(getString(R.string.nav_about), page = Destination.ABOUT)
+        label(getString(R.string.about_sources), 14)
+        action(getString(R.string.nav_back)) { menu() }
     }
     private fun preview() {
+        destination = Destination.PREVIEW
         scanToken++
         releaseGalleryPreview()
         galleryUri = null

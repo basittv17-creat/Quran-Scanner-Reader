@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <application android:label="Quran Scan Reader" android:theme="@style/Theme.QuranReader" android:usesCleartextTraffic="false" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:icon="@drawable/ic_quran" android:supportsRtl="true">
+    <application android:label="@string/reader_title" android:theme="@style/Theme.QuranReader" android:usesCleartextTraffic="false" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:icon="@drawable/ic_quran" android:supportsRtl="true">
         <activity android:name=".RecitationActivity" android:exported="false" />
         <activity android:name=".LiveScanActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true" android:theme="@style/Theme.QuranReader.Starting">
