@@ -41,3 +41,7 @@ Local Python provenance/structure check and six importer unit tests passed. No s
 - Android compile, new JUnit tests and lint must pass in Actions before this milestone is accepted.
 - The failed transfer run https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44464325038 correctly rejected truncated publisher bytes. Fixed by byte-exact base64 transfer with local-vs-remote Git blob SHA verification in commit 855f0dc2e96d0b538c3b75ad2d64fabaf98ae9c3.
 - See docs/EXTERNAL_ASSETS_AND_QA.md for concrete asset rights and device QA blockers.
+
+## Expanded CI finding
+
+Run https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44465020069 passed Kotlin compilation, resources and JVM tests, then failed lint on three DrawerLayout WrongConstant errors (Gravity.START instead of GravityCompat.START). Corrected all three call sites without suppressing lint. The run also reported 43 warnings, to be exposed in the next CI summary.

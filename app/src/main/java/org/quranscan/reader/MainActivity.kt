@@ -13,6 +13,7 @@ import android.view.View
 import android.widget.*
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.core.view.GravityCompat
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.core.VerseCandidates
 import org.quranscan.reader.ocr.OfflineArabicOcr
@@ -83,7 +84,7 @@ class MainActivity : Activity() {
         setContentView(drawer)
         root.addView(Button(this).apply {
             text = "☰ Menu"; contentDescription = "Open navigation menu"
-            setOnClickListener { drawer.openDrawer(Gravity.START) }
+            setOnClickListener { drawer.openDrawer(GravityCompat.START) }
         }, LinearLayout.LayoutParams(-2, -2))
         label(title, 25, gold)
     }
@@ -252,7 +253,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun menu() { drawer.openDrawer(Gravity.START) }
+    private fun menu() { drawer.openDrawer(GravityCompat.START) }
     private fun settings() {
         screen("Settings")
         label("OCR style selection (same generic Arabic model; script training and print testing pending)", 14)
@@ -302,5 +303,5 @@ class MainActivity : Activity() {
     }
     private fun message(text: String) { Toast.makeText(this, text, Toast.LENGTH_LONG).show() }
     @Deprecated("Prototype navigation")
-    override fun onBackPressed() { if (::drawer.isInitialized && drawer.isDrawerOpen(Gravity.START)) drawer.closeDrawers() else home() }
+    override fun onBackPressed() { if (::drawer.isInitialized && drawer.isDrawerOpen(GravityCompat.START)) drawer.closeDrawers() else home() }
 }

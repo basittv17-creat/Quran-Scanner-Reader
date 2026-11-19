@@ -38,6 +38,9 @@ jobs:
           gradle-version: '8.10.2'
       - name: Compile Kotlin and process resources ONLY
         run: gradle --no-daemon --stacktrace :app:compileDebugKotlin :app:processDebugResources :app:testDebugUnitTest :app:lintDebug
+      - name: Report unit tests and lint findings
+        if: always()
+        run: python3 tools/report_ci_results.py
       - name: Prove no APK or AAB was generated
         if: always()
         run: |
