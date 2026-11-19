@@ -14,9 +14,11 @@ import android.widget.*
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.core.view.GravityCompat
+import org.quranscan.reader.core.CropBounds
 import org.quranscan.reader.core.ImageDecodeLimits
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.core.VerseCandidates
+import org.quranscan.reader.core.VerseId
 import org.quranscan.reader.ocr.OfflineArabicOcr
 import java.util.concurrent.Executors
 
@@ -34,6 +36,10 @@ class MainActivity : Activity() {
     private val worker = Executors.newSingleThreadExecutor()
     private val pickImage = 101
     private var scanToken = 0
+    private var galleryUri: Uri? = null
+    private var galleryBitmap: Bitmap? = null
+    private var galleryCrop: GalleryCropView? = null
+    private var gallerySelection: CropBounds? = null
     private var profile = OfflineArabicOcr.Profile.AUTO
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,17 +49,33 @@ class MainActivity : Activity() {
         profile = runCatching {
             OfflineArabicOcr.Profile.valueOf(getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getString("profile", "AUTO")!!)
         }.getOrDefault(OfflineArabicOcr.Profile.AUTO)
-        home()
+        val restoredUri = savedInstanceState?.getString("gallery_uri")?.let(Uri::parse)
+        val restoredCrop = savedInstanceState?.getIntArray("gallery_selection")
+            ?.takeIf { it.size == 4 }
+            ?.let { CropBounds(it[0], it[1], it[2], it[3]) }
+        if (restoredUri != null) openGalleryImage(restoredUri, restoredCrop) else home()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        galleryUri?.let { outState.putString("gallery_uri", it.toString()) }
+        (galleryCrop?.selectedBounds() ?: gallerySelection)?.let {
+            outState.putIntArray("gallery_selection", intArrayOf(it.left, it.top, it.right, it.bottom))
+        }
+        super.onSaveInstanceState(outState)
     }
 
     override fun onDestroy() {
         scanToken++
+        releaseGalleryPreview()
         worker.shutdownNow()
         super.onDestroy()
     }
 
     private fun screen(title: String, scrollable: Boolean = true) {
         scanToken++ // Navigation invalidates pending gallery results.
+        releaseGalleryPreview()
+        galleryUri = null
+        gallerySelection = null
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
@@ -122,15 +144,41 @@ class MainActivity : Activity() {
     }
 
     private fun home() {
-        scanToken++
         screen("☪ Quran Scan Reader")
-        runCatching { OfflineCorpus(this).find(org.quranscan.reader.core.VerseId(1, 1)) }.getOrNull()?.let { label(it, 23, gold, true) }
+        val token = scanToken
+        val openingVerse = TextView(this).apply {
+            visibility = View.GONE
+            textDirection = View.TEXT_DIRECTION_RTL
+            textSize = arabicSize.toFloat()
+            setTextColor(gold)
+            gravity = Gravity.CENTER
+        }
+        root.addView(openingVerse)
         label("Offline Quran text • Camera and gallery scanning", 14)
-        val status = runCatching {
-            val db = OfflineCorpus(this)
-            "Quran text: ${db.count()}/6236  |  ${if (db.isComplete()) "structurally complete (review pending)" else "incomplete; matching disabled"}"
-        }.getOrElse { "Quran corpus checksum error; matching disabled" }
-        label(status, 13)
+        val corpusStatus = TextView(this).apply {
+            text = "Checking offline Quran text…"
+            setTextColor(gold)
+            gravity = Gravity.CENTER
+        }
+        root.addView(corpusStatus)
+        worker.execute {
+            val db = OfflineCorpus(applicationContext)
+            val complete = runCatching { db.isComplete() }.getOrNull()
+            val firstAyah = if (complete == true) db.find(VerseId(1, 1)) else null
+            val status = when (complete) {
+                true -> "Quran text: ${db.count()}/6236 | Structurally complete. Review pending."
+                false -> "Quran text is incomplete. Matching disabled."
+                null -> "Quran corpus checksum error. Matching disabled."
+            }
+            runOnUiThread {
+                if (token != scanToken || isFinishing || isDestroyed) return@runOnUiThread
+                corpusStatus.text = status
+                if (firstAyah != null) {
+                    openingVerse.text = firstAyah
+                    openingVerse.visibility = View.VISIBLE
+                }
+            }
+        }
         label("SCAN THE HOLY QURAN", 15, gold)
         action("📷 Live Quran Scan") { camera() }
         action("▧ Upload Quran Picture") { gallery() }
@@ -164,73 +212,110 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK || requestCode != pickImage) return
         val uri = data?.data ?: return
+        openGalleryImage(uri)
+    }
+
+    private fun openGalleryImage(uri: Uri, selection: CropBounds? = null) {
         screen("Opening selected image")
+        galleryUri = uri
+        gallerySelection = selection
         val token = scanToken
         label("Preparing image offline…", 16)
         worker.execute {
             val bitmap = decodePreview(uri)
             runOnUiThread {
                 if (token != scanToken || isFinishing || isDestroyed) { bitmap?.recycle(); return@runOnUiThread }
-                if (bitmap == null) { message("Unable to decode image"); home() } else previewGalleryCrop(bitmap)
+                if (bitmap == null) {
+                    message("Unable to open the image. Select a readable local picture and try again.")
+                    home()
+                } else previewGalleryCrop(uri, bitmap, selection)
             }
         }
     }
     private fun decodePreview(uri: Uri): Bitmap? {
         return try {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        val sample = ImageDecodeLimits.sampleSize(bounds.outWidth, bounds.outHeight, 2048)
-        val decoded = contentResolver.openInputStream(uri)?.use {
-            BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
-        } ?: return null
-        val orientation = runCatching {
-            contentResolver.openInputStream(uri)?.use { androidx.exifinterface.media.ExifInterface(it).getAttributeInt(
-                androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, 1) }
-        }.getOrNull() ?: 1
-        val matrix = android.graphics.Matrix()
-        when (orientation) {
-            2 -> matrix.setScale(-1f, 1f)
-            3 -> matrix.setRotate(180f)
-            4 -> matrix.setScale(1f, -1f)
-            5 -> { matrix.setRotate(90f); matrix.postScale(-1f, 1f) }
-            6 -> matrix.setRotate(90f)
-            7 -> { matrix.setRotate(270f); matrix.postScale(-1f, 1f) }
-            8 -> matrix.setRotate(270f)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            val sample = ImageDecodeLimits.sampleSize(bounds.outWidth, bounds.outHeight, 2048)
+            val orientation = runCatching {
+                contentResolver.openInputStream(uri)?.use {
+                    androidx.exifinterface.media.ExifInterface(it).getAttributeInt(
+                        androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, 1
+                    )
+                }
+            }.getOrNull() ?: 1
+            val decoded = contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+            } ?: return null
+            val matrix = android.graphics.Matrix()
+            when (orientation) {
+                2 -> matrix.setScale(-1f, 1f)
+                3 -> matrix.setRotate(180f)
+                4 -> matrix.setScale(1f, -1f)
+                5 -> { matrix.setRotate(90f); matrix.postScale(-1f, 1f) }
+                6 -> matrix.setRotate(90f)
+                7 -> { matrix.setRotate(270f); matrix.postScale(-1f, 1f) }
+                8 -> matrix.setRotate(270f)
+            }
+            if (matrix.isIdentity) return decoded
+            var transformed: Bitmap? = null
+            try {
+                transformed = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+                transformed
+            } finally {
+                if (transformed !== decoded) decoded.recycle()
+            }
+        } catch (_: Exception) {
+            null
+        } catch (_: OutOfMemoryError) {
+            null
         }
-        if (matrix.isIdentity) decoded else Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
-            .also { if (it !== decoded) decoded.recycle() }
-        } catch (_: Exception) { null }
     }
 
-    private fun previewGalleryCrop(bitmap: Bitmap) {
+    private fun previewGalleryCrop(uri: Uri, bitmap: Bitmap, selection: CropBounds?) {
         screen("Select Quran text", scrollable = false)
+        galleryUri = uri
+        galleryBitmap = bitmap
         label("Drag a rectangle around the text, then scan the selection. Full image scanning is also available.", 15)
-        val crop = GalleryCropView(this).apply { setImage(bitmap) }
+        val crop = GalleryCropView(this).apply { setImage(bitmap, selection) }
+        galleryCrop = crop
         root.addView(crop, LinearLayout.LayoutParams(-1, 0, 1f))
         action("Scan selected area") {
             val selected = runCatching { crop.croppedBitmap() }.getOrNull()
             if (selected == null) message("Unable to crop image. Try scanning the full image.")
-            else {
-                root.removeView(crop)
-                if (selected !== bitmap) bitmap.recycle()
-                scan(selected)
-            }
+            else startGalleryScan(uri, selected, crop.selectedBounds())
         }
-        action("Scan full image") { root.removeView(crop); scan(bitmap) }
-        action("Cancel") { root.removeView(crop); bitmap.recycle(); home() }
+        action("Scan full image") { startGalleryScan(uri, bitmap, CropBounds(0, 0, bitmap.width, bitmap.height)) }
+        action("Cancel") { home() }
     }
 
-    private fun scan(bitmap: Bitmap) {
-        screen("Offline Arabic OCR", scrollable = false)
+    private fun releaseGalleryPreview() {
+        galleryCrop?.let { root.removeView(it) }
+        galleryCrop = null
+        galleryBitmap?.recycle()
+        galleryBitmap = null
+    }
+
+    private fun startGalleryScan(uri: Uri, bitmap: Bitmap, selection: CropBounds) {
+        if (galleryBitmap === bitmap) galleryBitmap = null // Transfer ownership to the OCR callback.
+        scan(uri, bitmap, selection)
+    }
+
+    private fun scan(uri: Uri, bitmap: Bitmap, selection: CropBounds) {
+        screen("Offline Arabic OCR")
+        galleryUri = uri
+        gallerySelection = selection
         val token = scanToken
         label("اسکین جاری ہے — شناخت شدہ متن ابھی غیر مصدقہ ہے", 17, gold, true)
         label("Profile: $profile   •   All processing happens on your phone", 13)
-        root.addView(ImageView(this).apply {
+        val scanImage = ImageView(this).apply {
             setImageBitmap(bitmap)
+            contentDescription = "Selected area for offline OCR"
             adjustViewBounds = true
             scaleType = ImageView.ScaleType.FIT_CENTER
-        }, LinearLayout.LayoutParams(-1, 0, 1f))
+        }
+        root.addView(scanImage, LinearLayout.LayoutParams(-1, (180 * resources.displayMetrics.density).toInt()))
         val progress = ProgressBar(this)
         root.addView(progress)
         action("Home") { home() }
@@ -243,14 +328,16 @@ class MainActivity : Activity() {
                 Triple(ocr, candidates, db.isComplete())
             }
             runOnUiThread {
+                scanImage.setImageDrawable(null)
+                bitmap.recycle()
                 if (token != scanToken || isFinishing || isDestroyed) return@runOnUiThread
+                root.removeView(scanImage)
                 root.removeView(progress)
                 response.onSuccess { (ocr, candidates, complete) ->
                     if (ocr.rawUnverifiedText.isBlank()) {
                         label("No Arabic text detected. Try sharper lighting and a closer image.", 15)
                     } else {
                         label("⚠ UNVERIFIED OCR — may contain letter and diacritic errors", 15, gold)
-                        val scroll = ScrollView(this)
                         val raw = TextView(this).apply {
                             text = ocr.rawUnverifiedText.take(2000)
                             textSize = 21f
@@ -260,8 +347,7 @@ class MainActivity : Activity() {
                             layoutDirection = View.LAYOUT_DIRECTION_RTL
                             setPadding(12, 12, 12, 12)
                         }
-                        scroll.addView(raw)
-                        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+                        root.addView(raw, LinearLayout.LayoutParams(-1, -2))
                     }
                     if (!complete) label("Quran reference data not installed — NO verse was verified. Recitation disabled.", 14, gold)
                     else if (candidates.isEmpty()) label("No sufficiently strong candidate. Do not use raw OCR as Quran text.", 14)

@@ -33,9 +33,12 @@ class GalleryCropView @JvmOverloads constructor(context: Context, attrs: Attribu
         contentDescription = "Image crop preview. Drag to select text, or use Scan full image."
     }
 
-    fun setImage(bitmap: Bitmap) {
+    fun setImage(bitmap: Bitmap, restoredSelection: CropBounds? = null) {
         image = bitmap
-        selection = CropBounds(0, 0, bitmap.width, bitmap.height)
+        selection = restoredSelection?.takeIf {
+            it.left >= 0 && it.top >= 0 && it.right <= bitmap.width && it.bottom <= bitmap.height &&
+                it.width >= 16 && it.height >= 16
+        } ?: CropBounds(0, 0, bitmap.width, bitmap.height)
         requestLayout()
         invalidate()
     }
@@ -91,6 +94,8 @@ class GalleryCropView @JvmOverloads constructor(context: Context, attrs: Attribu
     }
 
     override fun performClick(): Boolean { super.performClick(); return true }
+
+    fun selectedBounds(): CropBounds = selection
 
     fun croppedBitmap(): Bitmap = Bitmap.createBitmap(image, selection.left, selection.top,
         selection.width, selection.height)
