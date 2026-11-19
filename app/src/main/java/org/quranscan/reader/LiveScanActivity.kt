@@ -526,10 +526,10 @@ class LiveScanActivity : ComponentActivity() {
         val upright = try {
             val angle = image.imageInfo.rotationDegrees
             val viewport = image.cropRect
-            val bounds = region.bitmapBounds(
+            val bounds = region.bitmapBoundsOrFullImage(
                 CropBounds(viewport.left, viewport.top, viewport.right, viewport.bottom),
                 angle, image.width, image.height, original.width, original.height
-            ) ?: CropBounds(0, 0, original.width, original.height)
+            )
             Bitmap.createBitmap(
                 original, bounds.left, bounds.top, bounds.width, bounds.height,
                 Matrix().apply { postRotate(angle.toFloat()) }, true

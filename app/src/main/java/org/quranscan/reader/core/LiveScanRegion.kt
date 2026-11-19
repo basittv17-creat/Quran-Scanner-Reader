@@ -5,6 +5,20 @@ data class LiveScanRegion(
     val left: Float, val top: Float, val right: Float, val bottom: Float,
     val useFullImage: Boolean = false
 ) {
+    /** Fall back to the decoded full image when a viewport crop cannot be resolved. */
+    fun bitmapBoundsOrFullImage(
+        viewport: CropBounds,
+        rotation: Int,
+        imageWidth: Int,
+        imageHeight: Int,
+        bitmapWidth: Int,
+        bitmapHeight: Int
+    ): CropBounds {
+        require(bitmapWidth > 0 && bitmapHeight > 0)
+        return bitmapBounds(viewport, rotation, imageWidth, imageHeight, bitmapWidth, bitmapHeight)
+            ?: CropBounds(0, 0, bitmapWidth, bitmapHeight)
+    }
+
     fun bitmapBounds(
         viewport: CropBounds,
         rotation: Int,
@@ -19,7 +33,9 @@ data class LiveScanRegion(
             else -> null
         }
         if (viewport.left < 0 || viewport.top < 0 || viewport.right > imageWidth ||
-            viewport.bottom > imageHeight || viewport.width <= 0 || viewport.height <= 0) return null
+            viewport.bottom > imageHeight || viewport.right <= viewport.left || viewport.bottom <= viewport.top) return null
+        if (!(left >= 0f && left < right && right <= 1f &&
+              top >= 0f && top < bottom && bottom <= 1f)) return null
         val raw = when (rotation) {
             0 -> this
             90 -> LiveScanRegion(top, 1f - right, bottom, 1f - left)
