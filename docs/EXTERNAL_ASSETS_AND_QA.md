@@ -39,3 +39,15 @@ Compilation and lint cannot establish these camera runtime outcomes.
 ## Gallery crop acceptance
 
 Source provides a fit-center drag selection and full-image fallback before OCR. Device QA must verify portrait/landscape images with EXIF rotations/reflections, dragging in all directions and beyond edges, tiny selections, Cancel/Back/navigation while decoding, large font, keyboard/insets and screen-reader full-image fallback. Pure crop math tests do not verify Android touch rendering or improve measured OCR accuracy by themselves.
+
+## Continued source acceptance - 19 November 2026
+
+New source checks do not close these manual gates:
+
+- Verify camera JPEG sampling/oversized-output rejection and candidate scrolling on low-RAM/narrow-screen devices. No measured device memory ceiling is claimed.
+- Interrupt audio/timing import before/after publication; verify old/new validated packs recover correctly. Test disk-full and power loss separately; filesystem unit tests model interruption states only.
+- Retain/select packs from different reciters, preserve legacy audio, remove inactive packs, hit eight-pack capacity, corrupt selection and confirm playback fails closed. Verify mismatched timelines are unavailable.
+- Rotate/recreate Recitation: selected verse/word and preferred mode restore; playback and verse confirmation do not. Confirm before every new verse; a timeline beyond recording duration must be rejected.
+- Check all recitation controls, MP3 seeking/highlights, accessibility, Arabic fonts and translated strings on device. Complete localization remains TODO.
+
+No APK/AAB was generated to perform these checks. Live reticle coordinate mapping and calibrated blur/lighting guidance remain implementation work, not completed features.

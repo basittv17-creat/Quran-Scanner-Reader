@@ -2,6 +2,14 @@
 
 Date: 19 November 2026. This is an incomplete development delivery, not a release-ready application. No APK/AAB was generated. All 59 original baseline files remain present; history is retained.
 
+## Current verified continuation (supersedes older counts below)
+
+Application/test/tool source `e53b8a2aa4547d58605d38178bd1174800d727c0`, Actions [44506883081](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44506883081), completed/success: **20 JVM tests, 0 failures/errors/skips; lint 0 errors / 46 warnings**, Python/pure Kotlin/corpus/Kotlin/resources checks passed; no APK/AAB. Five new source checkpoints have observed successful CI. Session baseline was 18 commits / 79 tracked files, not the stale 10-commit baseline. All original 59 baseline files and exact Quran assets remain.
+
+Delivered: bounded camera JPEG decode and scrollable review; recoverable imports; persistent recitation mode/replay and selection state; fresh verse comparison; background data reads; eight-pack retention/reciter selection/inactive removal; fail-closed selection and recording-duration timing checks. This is a partial development delivery. Implementation TODOs and external gates are explicitly separated in docs/DEVELOPMENT_HANDOFF_2026-11-19.md. No percentage or release-readiness claim is made.
+
+Final application source ZIP: https://drive.google.com/file/d/1m3rlUiAiuDpwYg00_mvLvLARcbzloL6v/view ; SHA-256 `ea0d2fed54864f104afdeba325511f3ff3084a425cb1561aadaebcca8b567624`. v19-v22 checkpoints/reports are separately backed up; milestone Gmail notifications sent. A following report-only snapshot/CI and consolidated report provide final delivery evidence.
+
 ## Phase assessment
 
 | Phase | Status | Delivered / remaining |

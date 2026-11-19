@@ -5,6 +5,14 @@
 This Android Studio **source** project is not a complete verified Quran reader and
 **has not been built as an APK**. The intended runtime has no INTERNET permission.
 
+## Current verified continuation - 19 November 2026
+
+Latest application source: `e53b8a2aa4547d58605d38178bd1174800d727c0`; [Actions 44506883081](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44506883081) completed/success. **20 JVM tests, zero failures/errors/skips; lint 0 errors / 46 warnings**. The existing Phase 7 audio-format validator now also runs in the combined CI gate. No tests were disabled and no APK/AAB was generated.
+
+New source checkpoints bound camera JPEG allocation before decoding; scroll candidate reviews; recover interrupted audio/timing activation; persist recitation mode and selected verse/word without auto-play; require fresh printed-verse comparison; move local-data reads off the UI thread; retain/select up to eight audio packs and remove inactive packs. Legacy recordings are retained. Word timelines remain bound to exact audio/text hashes and must fit the prepared recording duration.
+
+These are source and CI results, not device certification. Real-page OCR benchmarks, authentic permitted recordings, reviewed timings and scholarly/rendering review remain external gates. Live camera crop mapping, calibrated quality guidance, full localization/accessibility, other-screen state restoration, dependency-byte verification and broader storage/performance QA remain implementation work. See [current handoff](docs/DEVELOPMENT_HANDOFF_2026-11-19.md). Older sections below retain historical checkpoint evidence.
+
 ## Current scope
 
 - Kotlin Android Native app, AndroidX splash, green/gold screens, sidebar, persisted settings and a restricted offline WebView style preview.

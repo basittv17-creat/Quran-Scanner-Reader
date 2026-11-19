@@ -1,3 +1,20 @@
+# تازہ تصدیق شدہ ترقیاتی حیثیت — 19 نومبر 2026
+
+- آخری Application Source: `e53b8a2aa4547d58605d38178bd1174800d727c0`۔ Run 44506883081 کامیاب ہے۔
+- 20 JVM Tests، صفر failures/errors/skips؛ Lint صفر Errors اور 46 Warnings۔ Python، اصل قرآنی متن، Audio Format، Kotlin اور Resources کی جانچ کامیاب۔ کوئی Test بند یا Warning suppress نہیں کی۔
+- بڑی Camera JPEG کو Bitmap بنانے سے پہلے محدود Decode، قابلِ Scroll آیت Review، آڈیو/ٹائمنگ Import کی interruption recovery اور درآمد کے دوران Playback کی حفاظت شامل ہے۔
+- تلاوت کے تین محفوظ مقامی موڈ، Replay، Rotation کے بعد آیت/لفظ کا انتخاب بحال؛ Playback خود شروع نہیں ہوتی۔ ہر نئی آیت پر مکمل متن اور حوالہ ملانے کی تازہ تصدیق مطلوب ہے۔ مقامی ڈیٹا Background میں پڑھا جاتا ہے۔
+- آٹھ تک الگ آڈیو پیک محفوظ، قاری/پیک کا انتخاب اور غیر فعال پیک حذف کرنے کی سہولت شامل ہے؛ پرانا آڈیو محفوظ رہتا ہے۔ ٹائمنگ کے آڈیو/متن ہیش اور ریکارڈنگ کے دورانیے کی جانچ برقرار ہے۔
+- اصل 6,236 آیات، اعراب، ہیش، Attribution اور تمام بنیادی فائلیں محفوظ ہیں۔ نئے اجازت یافتہ آڈیو یا حقیقی OCR نمونے شامل نہیں کیے گئے۔
+- Live Camera Crop Mapping، روشنی/Blur کی calibrated رہنمائی، مکمل ترجمہ/Accessibility، باقی Screens کی State Restoration، Dependency byte verification اور Storage/Performance کی مزید جانچ باقی ہے۔ یہ کام صرف بیرونی Assets کی رکاوٹ نہیں ہیں۔
+- حقیقی پاکستانی/مدنی صفحات کی جائز reviewed تصاویر، مستند اجازت یافتہ ریکارڈنگ، انسانی جانچے لفظی اوقات، علمی/Display جائزہ اور Android Device QA باقی ہیں۔ APK کی ممانعت کے تحت Package پر منحصر Device QA ملتوی ہے۔
+
+**یہ جزوی ترقیاتی سورس ہے؛ مکمل یا Release-ready ایپ کا دعویٰ نہیں۔ کوئی APK/AAB نہیں بنایا گیا۔**
+
+تفصیلی Checkpoints، CI، Backups اور بحالی کی ہدایات PROGRESS_REPORT.md اور docs/DEVELOPMENT_HANDOFF_2026-11-19.md میں ہیں۔ نیچے سابقہ تاریخ محفوظ ہے۔
+
+---
+
 # قرآن اسکین ریڈر — موجودہ حیثیت
 
 19 نومبر 2026۔ یہ قابلِ ترقی سورس ہے؛ مکمل، حقیقی فون پر آزمودہ ایپ نہیں۔
