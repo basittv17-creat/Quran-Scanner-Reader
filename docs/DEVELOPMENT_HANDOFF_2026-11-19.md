@@ -1,5 +1,11 @@
 # Development handoff - 19 November 2026
 
+## Work 10 integration and resume point
+
+[Source checkpoint `b620057`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/b620057949f54cfe67533fc542e956bcc9845d33) and [source-only Actions 44537951392](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44537951392) completed validation. The job log records 64 JVM tests and 21 Python OCR metric tests with zero failures, errors or skips in each suite, lint with 0 errors and 13 warnings, and no APK/AAB. GitHub lists zero uploaded artifacts. Independently, local Python discovery passed 41 tests, and the corpus and source-policy gates passed.
+
+All nine numbered [workstream records](REMAINING_WORK_01.md) are on main. Pull request [#1](https://github.com/basittv17-creat/Quran-Scanner-Reader/pull/1) is merged. Camera crop, OCR diagnostics, audio recovery, recitation safeguards and paired language resources are integrated; gallery restoration was already on the audited baseline. Retain the older sections below as historical snapshots. Use the current [next steps](NEXT_STEPS.md) and [external gates](EXTERNAL_ASSETS_AND_QA.md) for follow-up. The original standalone Master Command was unavailable for a verbatim comparison; the requirements here were traced using the supplied integration checklist and repository acceptance matrix.
+
 ## Latest verified source
 
 Main application/test/tool source: `e53b8a2aa4547d58605d38178bd1174800d727c0`.

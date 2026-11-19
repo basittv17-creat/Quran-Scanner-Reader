@@ -1,5 +1,17 @@
 # External assets and device QA gates
 
+## Work 10 gate status
+
+| Gate | Status and required evidence |
+|---|---|
+| Pakistani 15-line page photos | **BLOCKED.** Exact edition/layout and photograph permissions, with representative real camera captures. |
+| Madani page photos | **BLOCKED.** Exact edition/layout and photograph permissions for physical pages. See [Work 07](REMAINING_WORK_07.md). |
+| OCR benchmark references | **BLOCKED.** Independently reviewed ordered ayah labels for the approved photo dataset. |
+| Authentic recitation | **BLOCKED.** Recording-specific authenticity evidence and explicit redistribution grant. |
+| Exact word timings | **BLOCKED.** Human listening review and timing rights for the exact recording, bound to recording and text digests. |
+| Quran text and display | **BLOCKED.** Qualified scholarly sign-off, including glyphs and marks shown on supported devices. Corpus identity passed automated verification. |
+| Physical Android QA | **BLOCKED.** Authorized installed build, hardware and recorded camera, gallery, accessibility, playback, storage and performance results. |
+
 ## Text
 
 Tanzil Uthmani v1.1 is bundled verbatim from the publisher. All 6236 entries and marks round-trip exactly to the retained source; two HTTPS downloads agreed. The digest was recorded locally, not signed by the publisher. A qualified reviewer still needs to compare the displayed text and font marks on supported phones. The included Uthmani edition does not establish faithful display of a Pakistani 15-line layout.

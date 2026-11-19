@@ -17,6 +17,10 @@
 
 The initial crop commit `4aab8de` compiled and passed 23 JVM tests. [Run 44512392079](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44512392079) failed on 17 missing Urdu locale entries. `840f79a` added the entries, preserved the Urdu wording, supplied English defaults, and passed lint. Neither tests nor lint rules were disabled.
 
+## Work 10 checkpoint
+
+[Source checkpoint `b620057`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/b620057949f54cfe67533fc542e956bcc9845d33) and [source-only Actions 44537951392](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44537951392) completed validation. The job log records 64 JVM tests and 21 Python OCR metric tests with zero failures, errors or skips in each suite, lint with 0 errors and 13 warnings, and no APK/AAB. GitHub lists zero uploaded artifacts. Independently, local Python discovery passed 41 tests, and the corpus and source-policy gates passed.
+
 ## Feature acceptance
 
 | Area | Source and evidence | Outstanding work |
@@ -37,7 +41,7 @@ Android device and emulator tests requiring a package are **Deferred — APK Aut
 ## Resume from current main
 
 1. Fetch main and confirm the newest successful source-validation run against its exact Git SHA. Confirm the absence of APK/AAB.
-2. For the next source change, finish extracting Settings, Help, About and remaining scanner/recitation strings into matched English and Urdu resources. Add restoration for these destinations and an accessible selection control for live crop. Verify translation key parity, all existing source tests and source-only CI.
+2. Preserve the integrated camera and gallery state handling, localized scanner and recitation resources, and audio recovery paths. Treat TalkBack, narrow layouts, RTL and recreation as device acceptance cases. Review any remaining user-visible hard-coded strings during that validation.
 3. Prepare Gradle verification metadata using the existing four authorized source-only tasks and verified upstream artifact provenance. Review changes to downloaded artifacts independently. Do not weaken or bypass dependency verification to make CI pass.
 4. Use the benchmark's `--require-provenance` workflow only after receiving licensed, reviewed Pakistani and Madani photo exports. Preserve both canonical Quran hashes and obtain qualified scholarly review separately.
 5. When APK authorization is granted, exercise camera crop with a known quadrant pattern in portrait, landscape and reverse orientations, both automatic and still capture. Then run gallery, TalkBack, reader, audio, low-storage and performance cases from [EXTERNAL_ASSETS_AND_QA.md](EXTERNAL_ASSETS_AND_QA.md).

@@ -1,5 +1,15 @@
 # Quran Scanner Reader — source delivery report
 
+## Work 10 integration checkpoint — 19 November 2026
+
+[Source checkpoint `b620057`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/b620057949f54cfe67533fc542e956bcc9845d33) and [source-only Actions 44537951392](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44537951392) completed validation. The job log records 64 JVM tests and 21 Python OCR metric tests with zero failures, errors or skips in each suite, lint with 0 errors and 13 warnings, and no APK/AAB. GitHub lists zero uploaded artifacts. Independently, local Python discovery passed 41 tests, and the corpus and source-policy gates passed.
+
+Remaining Work 01–09 records are present on main. Source integration includes selectable camera viewport cropping with full-image fallback, bounded image processing and OCR diagnostics, lifecycle-safe gallery crop and EXIF restoration, recoverable multi-pack offline audio, manually confirmed and interruption-safe recitation, exact audio/text timing binding, English/Urdu scanner and reader resources, strict benchmark provenance intake, and independent local corpus verification.
+
+Three recent failed runs (44536790953, 44537101027 and 44537178654) stopped at Kotlin unit-test compilation because the partial-alpha ARGB literal in ScanImageQualityTest.kt was wider than Int. The signed literal fix in [f54e22d](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/f54e22d31a09ac5d7615f759a587cc5234b39eca) is part of this checkpoint.
+
+The Tanzil source and JSONL digests match the established pins. All 6,236 ordered verses, harakat and publisher attribution were verified. Strict transitive Gradle checksum enforcement and native dependency review remain open. Legal photographs and reviewed OCR labels, redistribution-cleared audio, reviewed timings, scholarly display review and physical Android QA remain blocked. See [external gates](docs/EXTERNAL_ASSETS_AND_QA.md).
+
 ## Current source and validation
 
 Main was audited at `d0f730d26fa1c67431696c03d1c4f7a611fe316e`. [Run 44514943361](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44514943361) passed with 28 JVM tests and lint 0 errors / 43 warnings. Live crop, bounded decoding, audio catalog and import recovery, and persistent recitation mode were already present.
