@@ -47,5 +47,27 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(r['by_printing']['synthetic']['incorrect_predictions'], 1)
         self.assertEqual(r['by_printing']['other']['verse_reference_accuracy'], 1)
 
+    def test_provenance_reports_scripts_and_configuration_separately(self):
+        common = dict(publisher='fixture publisher', device='fixture device', app_commit='c'*40,
+                      model_sha256='b'*64, profile='auto')
+        observations = [
+            self.sample(script='indo-pak', **common),
+            self.sample(sample_id='miss', script='madani', predicted_refs=[], **common),
+            self.sample(sample_id='wrong', script='madani', predicted_refs=[[1, 2]], **common),
+        ]
+        report = evaluate(observations, require_provenance=True)
+        self.assertEqual(report['schema'], 'QSR-OCR-BENCHMARK-2')
+        self.assertEqual(report['by_script']['indo-pak']['verse_reference_accuracy'], 1)
+        self.assertEqual(report['by_script']['madani']['abstention_rate'], .5)
+        self.assertEqual(report['by_script']['madani']['false_positive_rate'], .5)
+        self.assertEqual(len(report['by_configuration']), 2)
+        self.assertEqual(report['by_configuration'][0]['model_sha256'], 'b'*64)
+
+    def test_comparison_requires_complete_provenance(self):
+        with self.assertRaises(ValueError):
+            evaluate([self.sample()], require_provenance=True)
+        with self.assertRaises(ValueError):
+            evaluate([self.sample(script='madani')])
+
 
 if __name__ == '__main__': unittest.main()
