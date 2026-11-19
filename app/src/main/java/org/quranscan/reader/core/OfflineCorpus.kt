@@ -4,17 +4,15 @@ import android.content.Context
 import org.json.JSONObject
 import java.security.MessageDigest
 
-/** Loads ONLY locally bundled, independently reviewed verses. Empty corpus fails closed. */
+/** Loads the locally bundled Tanzil edition after checking its pinned digest. */
 class OfflineCorpus(private val context: Context) : CanonicalQuranRepository {
     private val verses: Map<VerseId, String> by lazy { load() }
     override fun find(id: VerseId): String? = verses[id]
     fun count(): Int = verses.size
     /** Never mutate canonical text. This snapshot is for candidate comparisons only. */
     fun asMap(): Map<VerseId, String> = verses
-    /** A partial or tampered text source must never enable automatic recitation. */
-    fun isComplete(): Boolean = verses.size == 6236 && QuranVerseCounts.counts.indices.all { s ->
-        (1..QuranVerseCounts.counts[s]).all { a -> verses.containsKey(VerseId(s+1,a)) }
-    }
+    /** Loading rejects invalid IDs, duplicates and an incomplete corpus before caching. */
+    fun isComplete(): Boolean = count() == QuranVerseCounts.totalVerses
 
     private fun load(): Map<VerseId, String> = cached ?: synchronized(cacheLock) {
         cached ?: readAndValidate().also { cached = it }
@@ -35,6 +33,7 @@ class OfflineCorpus(private val context: Context) : CanonicalQuranRepository {
             require(arabic.isNotBlank() && arabic.any { it in '\u0621'..'\u064A' })
             require(result.put(id, arabic) == null) { "Duplicate Quran verse: $id" }
         }
+        // Every key is a valid VerseId, so this count proves complete coverage.
         require(result.size == QuranVerseCounts.totalVerses) { "Incomplete canonical Quran corpus" }
         return java.util.Collections.unmodifiableMap(result)
     }

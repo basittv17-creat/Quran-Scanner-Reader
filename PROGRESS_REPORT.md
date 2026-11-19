@@ -193,3 +193,9 @@ Next checkpoint preserves up to eight local audio packs instead of replacing the
 Commit `cf25dc5ab43c297ad1d475c9cbd2be9cad344fbd`, Actions 44506327553 completed/success: 20 JVM tests with zero failures/errors/skips, lint 0 errors / 46 warnings; all Python/Kotlin/resources/source/no-APK gates passed. Source ZIP https://drive.google.com/file/d/1X16ac6R2iLsBYTj4aUj7wTPtu5GVmxIX/view; SHA-256 `c64dcaa47de358b1eb1f552a8d8b6628af94ea78b5e8035cfa9716ae1ff1fb1d`. Report backed up and Gmail notification sent.
 
 Follow-up rejects a missing selection record inside an existing selection directory instead of silently falling back to legacy audio; catalog tests now cover this corruption. Full-ayah word highlighting additionally checks the entire timeline end against prepared recording duration. Import errors/success notices survive refreshing the verse. The existing standalone Phase 7 validator is now executed by the combined Phase 8 gate, with updated real method names and catalog publication assertion; no tests disabled. Android CI follows this checkpoint.
+
+## Corpus loading checkpoint — 19 November 2026
+
+Re-audited `main` at `407a5ed05b60bafb9f248ef0f95214320b62d4f2` (66 commits, 122 tracked files). The [baseline source-only run](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44539163424) completed successfully. Local Python discovery passed 41 tests, source policy passed, and all 6,236 verse references and UTF-8 text bytes matched the pinned publisher source.
+
+The offline loader already rejects invalid and duplicate verse IDs before caching and requires the exact count of valid IDs. Completeness queries now use the validated map size, avoiding a second traversal and thousands of ID allocations in scanner, reader and timing import paths. The bundled text, digest pins and attribution are unchanged. Qualified scholarly and device-rendering review remain pending.

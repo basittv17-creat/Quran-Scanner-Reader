@@ -52,3 +52,7 @@ Gallery میں OCR سے پہلے منتخب حصے کو Crop کرنے کا سو�
 ## آخری تصدیق شدہ سورس
 
 Commit `5e5506695b8876e4c76ae13d6eb9c26e22d0015a` کی Run 44482901626 کامیاب ہے: Kotlin، Resources، Python checks، نو JVM Tests، صفر failures/errors/skips؛ Lint صفر Errors اور 39 Warnings۔ کوئی APK/AAB نہیں بنا۔ Constructor Warning درست ہے۔ نئے سورس میں Camera lifecycle/focus/exposure، Gallery Crop، Help/Exit، Settings/privacy اور Insets کی اصلاحات شامل ہیں۔ تمام اصل 59 فائلیں اور Corpus محفوظ ہیں۔ Live Camera Crop، Blur calibration، مکمل Audio Pack management/localization اور فون QA ابھی باقی ہیں؛ مستند آڈیو، لفظی اوقات اور حقیقی صفحات کی benchmark جانچ بھی مطلوب ہے۔
+
+## آف لائن قرآنی متن کی جانچ — 19 نومبر 2026
+
+تمام 114 سورتوں کی 6,236 آیات اصل Tanzil ماخذ سے بائٹ بہ بائٹ ملیں۔ لوڈر درست اور منفرد آیت نمبروں کی مکمل تعداد پہلی بار لوڈ کرتے وقت جانچتا ہے۔ بعد کی جانچیں محفوظ شدہ مکمل فہرست کا شمار استعمال کرتی ہیں۔ آزاد علمی اور Android پر متن کی نمائش کی جانچ باقی ہے۔
