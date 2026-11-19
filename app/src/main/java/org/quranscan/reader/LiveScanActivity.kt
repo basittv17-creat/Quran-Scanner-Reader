@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
 import android.graphics.Color
 import android.graphics.Matrix
 import android.os.Bundle
@@ -29,6 +31,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import org.quranscan.reader.core.ImageDecodeLimits
 import org.quranscan.reader.core.CameraScanGate
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.core.VerseCandidates
@@ -181,9 +184,16 @@ class LiveScanActivity : ComponentActivity() {
             addView(rawOutput)
             isFillViewport = true
         }
-        root.addView(scroller, LinearLayout.LayoutParams(-1, dp(155)))
         reviewContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(reviewContainer)
+        scroller.removeView(rawOutput)
+        val results = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(rawOutput)
+            addView(reviewContainer)
+        }
+        scroller.addView(results)
+        // Candidates share the scroll area so all review controls remain reachable.
+        root.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
     }
 
     private fun startCamera() {
@@ -303,7 +313,23 @@ class LiveScanActivity : ComponentActivity() {
     }
 
     private fun toUprightBitmap(image: ImageProxy): Bitmap {
-        val original = image.toBitmap()
+        val original = if (image.format == ImageFormat.JPEG) {
+            // Still-capture resolution requests are hints. Read JPEG bounds before pixel allocation.
+            val buffer = image.planes[0].buffer.duplicate()
+            require(buffer.remaining() in 1..32 * 1024 * 1024) { "Capture is too large" }
+            val bytes = ByteArray(buffer.remaining()).also { buffer.get(it) }
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = ImageDecodeLimits.sampleSize(bounds.outWidth, bounds.outHeight, 1500)
+            }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                ?: error("Cannot decode captured JPEG")
+        } else {
+            // Analysis buffers are requested at 960x720; reject oversized vendor output first.
+            require(image.width.toLong() * image.height <= 4_000_000L) { "Analysis frame is too large" }
+            image.toBitmap()
+        }
         val angle = image.imageInfo.rotationDegrees
         val upright = if (angle == 0) original else {
             val rotated = Bitmap.createBitmap(

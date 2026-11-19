@@ -7,6 +7,19 @@ import org.quranscan.reader.audio.*
 
 /** Synthetic fixtures only: these tests make no Quran/OCR accuracy claims. */
 class CoreSafetyTest {
+    @Test fun decoderSamplingBoundsLargeImagesAndRejectsInvalidDimensions() {
+        for ((w, h) in listOf(1500 to 1125, 1501 to 1200, 3001 to 1,
+            48000 to 36000, Int.MAX_VALUE to Int.MAX_VALUE)) {
+            val sample = ImageDecodeLimits.sampleSize(w, h, 1500)
+            assertTrue(sample > 0 && sample and (sample - 1) == 0)
+            assertTrue((maxOf(w, h).toLong() + sample - 1) / sample <= 1500)
+            if (sample > 1) assertTrue((maxOf(w, h).toLong() + sample / 2 - 1) / (sample / 2) > 1500)
+        }
+        for ((w, h) in listOf(0 to 10, -1 to 100, 20 to 0)) {
+            assertTrue(runCatching { ImageDecodeLimits.sampleSize(w, h, 1500) }.isFailure)
+        }
+    }
+
     @Test fun cropDragClampsEdgesSupportsReverseAndRejectsTinyOrNonFiniteAreas() {
         assertEquals(CropBounds(0, 0, 100, 80), CropBounds.fromDrag(100, 80, 110f, 90f, -10f, -5f))
         assertEquals(CropBounds(10, 20, 41, 61), CropBounds.fromDrag(100, 80, 40.2f, 60.1f, 10.5f, 20.8f))

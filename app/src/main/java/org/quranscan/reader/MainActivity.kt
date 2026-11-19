@@ -14,6 +14,7 @@ import android.widget.*
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.core.view.GravityCompat
+import org.quranscan.reader.core.ImageDecodeLimits
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.core.VerseCandidates
 import org.quranscan.reader.ocr.OfflineArabicOcr
@@ -179,8 +180,7 @@ class MainActivity : Activity() {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        var sample = 1
-        while (maxOf(bounds.outWidth / sample, bounds.outHeight / sample) > 2048) sample *= 2
+        val sample = ImageDecodeLimits.sampleSize(bounds.outWidth, bounds.outHeight, 2048)
         val decoded = contentResolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
         } ?: return null
