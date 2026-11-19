@@ -28,6 +28,8 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(g['cer'], 4/14)
         self.assertEqual(g['wer'], 1/4)
         self.assertEqual(g['verse_reference_accuracy'], .5)
+        self.assertEqual(g['verse_reference_precision'], 1)
+        self.assertEqual(g['verse_reference_recall'], .5)
         self.assertEqual(g['abstentions'], 1)
         self.assertEqual(g['latency_mean_ms'], 20)
         self.assertEqual(g['latency_p95_ms'], 30)
@@ -95,6 +97,21 @@ class BenchmarkTests(unittest.TestCase):
         report = evaluate([self.sample(expected_refs=[[1, 1], [1, 2]],
                                        predicted_refs=[[1, 2], [1, 1]])])
         self.assertEqual(report['by_printing']['synthetic']['false_positive_rate'], 1)
+        self.assertEqual(report['by_printing']['synthetic']['verse_reference_precision'], 1)
+        self.assertEqual(report['by_printing']['synthetic']['verse_reference_recall'], 1)
+
+    def test_reference_precision_and_recall_micro_average(self):
+        report = evaluate([
+            self.sample(expected_refs=[[1, 1], [1, 2], [1, 3]], predicted_refs=[[1, 2], [1, 4]]),
+            self.sample(sample_id='second', expected_refs=[[1, 2]], predicted_refs=[[1, 2]]),
+        ])
+        metrics = report['by_printing']['synthetic']
+        self.assertEqual(metrics['expected_reference_count'], 4)
+        self.assertEqual(metrics['predicted_reference_count'], 3)
+        self.assertEqual(metrics['matching_reference_count'], 2)
+        self.assertEqual(metrics['verse_reference_precision'], 2 / 3)
+        self.assertEqual(metrics['verse_reference_recall'], 1 / 2)
+        self.assertEqual(metrics['verse_reference_accuracy'], 1 / 2)
 
     def test_duplicate_id_across_printings(self):
         with self.assertRaisesRegex(ValueError, 'Duplicate sample_id'):
@@ -106,6 +123,8 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual((metrics['cer'], metrics['wer']), (1, 1))
         self.assertEqual(metrics['abstention_rate'], 1)
         self.assertEqual(metrics['false_positive_rate'], 0)
+        self.assertIsNone(metrics['verse_reference_precision'])
+        self.assertEqual(metrics['verse_reference_recall'], 0)
 
     def test_mixed_export_in_either_order(self):
         legacy = self.sample()

@@ -69,7 +69,8 @@ def provenance(row):
 def record(groups, key, observation):
     group = groups.setdefault(key, dict(samples=0, char_edits=0, reference_characters=0,
         word_edits=0, reference_words=0, exact_reference_matches=0, abstentions=0,
-        incorrect_predictions=0, latency_ms=[]))
+        incorrect_predictions=0, expected_reference_count=0,
+        predicted_reference_count=0, matching_reference_count=0, latency_ms=[]))
     group['samples'] += 1
     for field, value in observation.items():
         if field == 'latency_ms':
@@ -85,6 +86,10 @@ def summarize(group):
     group['verse_reference_accuracy'] = group['exact_reference_matches'] / samples
     group['abstention_rate'] = group['abstentions'] / samples
     group['false_positive_rate'] = group['incorrect_predictions'] / samples
+    matches = group['matching_reference_count']
+    predictions = group['predicted_reference_count']
+    group['verse_reference_precision'] = matches / predictions if predictions else None
+    group['verse_reference_recall'] = matches / group['expected_reference_count']
     latencies = sorted(group.pop('latency_ms'))
     group['latency_mean_ms'] = sum(latencies) / samples
     group['latency_p95_ms'] = latencies[math.ceil(samples * .95) - 1]
@@ -113,6 +118,7 @@ def evaluate(rows, require_provenance=False, configuration_fields=()):
             raise ValueError('OCR strings must be bounded to 20000 code points')
         expected_refs = refs(row.get('expected_refs'))
         predicted_refs = refs(row.get('predicted_refs'), allow_empty=True)
+        matching_refs = len(set(map(tuple, expected_refs)).intersection(map(tuple, predicted_refs)))
         latency = row.get('latency_ms')
         if type(latency) not in (int, float) or not math.isfinite(latency) or latency < 0:
             raise ValueError('Invalid measured latency')
@@ -125,6 +131,8 @@ def evaluate(rows, require_provenance=False, configuration_fields=()):
         observation = dict(
             char_edits=distance(expected, actual), reference_characters=len(expected),
             word_edits=distance(expected_words, actual.split()), reference_words=len(expected_words),
+            expected_reference_count=len(expected_refs), predicted_reference_count=len(predicted_refs),
+            matching_reference_count=matching_refs,
             exact_reference_matches=predicted_refs == expected_refs, abstentions=not predicted_refs,
             incorrect_predictions=bool(predicted_refs) and predicted_refs != expected_refs, latency_ms=latency)
         record(groups, row['printing'], observation)

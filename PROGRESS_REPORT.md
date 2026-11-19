@@ -199,3 +199,7 @@ Follow-up rejects a missing selection record inside an existing selection direct
 Re-audited `main` at `407a5ed05b60bafb9f248ef0f95214320b62d4f2` (66 commits, 122 tracked files). The [baseline source-only run](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44539163424) completed successfully. Local Python discovery passed 41 tests, source policy passed, and all 6,236 verse references and UTF-8 text bytes matched the pinned publisher source.
 
 The offline loader already rejects invalid and duplicate verse IDs before caching and requires the exact count of valid IDs. Completeness queries now use the validated map size, avoiding a second traversal and thousands of ID allocations in scanner, reader and timing import paths. The bundled text, digest pins and attribution are unchanged. Qualified scholarly and device-rendering review remain pending.
+
+## OCR benchmark reference metrics
+
+The offline evaluator now reports micro-averaged ayah reference precision and recall alongside exact ordered reference accuracy, CER and WER. Counts distinguish partial matches, extra predictions and abstentions. Source tests cover these cases using synthetic inputs. Real Mushaf accuracy remains unmeasured pending reviewed real-page exports.

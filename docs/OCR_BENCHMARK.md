@@ -34,6 +34,12 @@ missing diacritics count as errors. Insertions can produce rates above 1.
 Verse accuracy requires the complete ordered reference list to match. An abstention
 counts as a recognition miss and is reported separately from a wrong prediction.
 False positive rate is wrong nonempty predictions divided by all samples.
+Verse reference precision divides the number of matching ayah IDs by the
+number of predicted IDs. Recall divides it by the number of expected IDs.
+The report adds those counts across samples before dividing. These two metrics
+ignore order and give credit for partial matches. Exact ordered accuracy
+still requires the full list to match in order. If a group emits no
+predictions, precision is JSON null and recall is zero.
 Abstention rate is empty predictions divided by all samples. Rates are
 micro-averaged. Compare devices, editions and models using the per-configuration
 breakdown; per-script and per-printing results pool their respective observations.
