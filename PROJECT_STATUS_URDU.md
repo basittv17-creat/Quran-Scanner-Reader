@@ -1,5 +1,12 @@
 # تازہ تصدیق شدہ ترقیاتی حیثیت — 19 نومبر 2026
 
+## تازہ حفاظتی Milestone — 19 نومبر 2026
+
+[Pull Request #2](https://github.com/basittv17-creat/Quran-Scanner-Reader/pull/2) کو [`f197db1`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/f197db1a16ac518613958d7104004aa749d556b8) پر `main` میں Merge کیا گیا۔ [GitHub Actions 44580417501](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44580417501) کامیاب ہوا: 64 JVM ٹیسٹ، 22 Python OCR ٹیسٹ، Kotlin اور وسائل کی Compilation پاس؛ Lint میں **0 Errors اور 13 Warnings**؛ **کوئی APK/AAB تیار نہیں ہوئی**۔
+
+آڈیو پیک بنانے والے ٹول میں غلط آیت حوالہ، سائز، نام اور Metadata کے Control Characters اب Python `-O` موڈ میں بھی مسترد ہوتے ہیں؛ متعلقہ Regression Tests شامل ہیں۔ اصل قرآنی متن، آڈیو اور لفظی اوقات تبدیل نہیں کیے گئے۔ حقیقی 15 لائن/مدنی تصویری معیار، اجازت یافتہ تلاوت، انسانی تصدیق شدہ Timings، اہلِ علم کا جائزہ اور فون پر مکمل QA ابھی باقی ہیں۔
+
+
 ## ورک 10 کی تصدیق — 19 نومبر 2026
 
 [سورس `b620057`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/b620057949f54cfe67533fc542e956bcc9845d33) کے [Actions run 44537951392](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44537951392) میں 64 JVM اور 21 Python OCR ٹیسٹ پاس ہوئے۔ دونوں میں ناکام، خرابی والے یا چھوڑے گئے ٹیسٹ صفر تھے۔ Lint میں صفر errors اور 13 warnings آئیں۔ مقامی Python کے 41 ٹیسٹ بھی پاس ہوئے۔ کوئی APK/AAB تیار نہیں ہوا۔

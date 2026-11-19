@@ -1,5 +1,12 @@
 # Quran Scanner Reader — source delivery report
 
+## Audio pack builder hardening — verified 19 November 2026
+
+[PR #2](https://github.com/basittv17-creat/Quran-Scanner-Reader/pull/2) was merged as [`f197db1`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/f197db1a16ac518613958d7104004aa749d556b8). [GitHub Actions 44580417501](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44580417501) completed **success** on the merged `main` commit: 64 JVM tests (zero failures/errors/skips), 22 Python OCR metric tests, Android Kotlin/resources compilation and source policy passed; Android lint reported **0 errors / 13 warnings**; the CI confirmed **no APK/AAB generated**.
+
+The user-supplied offline audio pack builder now enforces attribution control-character, filename, verse-range and byte-size validation even with Python `-O`, with synthetic regression checks. The original Tanzil corpus, app audio and word timestamps were not changed. Real Pakistani/Madani photo OCR benchmarks, reciter/redistribution rights, reviewed word timings, independent scholarly review and physical Android-device QA remain unresolved. Source-only PR snapshot is a separate checkpoint, not a release-certified app.
+
+
 ## Work 10 integration checkpoint — 19 November 2026
 
 [Source checkpoint `b620057`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/b620057949f54cfe67533fc542e956bcc9845d33) and [source-only Actions 44537951392](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44537951392) completed validation. The job log records 64 JVM tests and 21 Python OCR metric tests with zero failures, errors or skips in each suite, lint with 0 errors and 13 warnings, and no APK/AAB. GitHub lists zero uploaded artifacts. Independently, local Python discovery passed 41 tests, and the corpus and source-policy gates passed.
