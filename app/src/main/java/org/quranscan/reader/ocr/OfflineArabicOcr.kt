@@ -21,6 +21,7 @@ class OfflineArabicOcr(private val context: Context) {
         val rawUnverifiedText: String,
         val profile: Profile,
         val variantsChecked: Int,
+        // OCR pipeline wall time, including diagnostics, model preparation and per-variant cleanup.
         val elapsedMs: Long,
         val quality: ScanImageQuality?
     )
@@ -40,39 +41,49 @@ class OfflineArabicOcr(private val context: Context) {
                 Profile.MADANI -> listOf(TessBaseAPI.PageSegMode.PSM_AUTO, TessBaseAPI.PageSegMode.PSM_SINGLE_BLOCK)
                 Profile.AUTO -> listOf(TessBaseAPI.PageSegMode.PSM_AUTO, TessBaseAPI.PageSegMode.PSM_SINGLE_BLOCK)
             }
-            val prepared = ImagePreprocessor.normalize(bitmap)
-            try {
-                val options = listOf(bitmap, prepared)
-                var bestText = ""
-                var bestScore = -1
-                var count = 0
-                recognition@ for (input in options) {
-                    for (mode in modes) {
-                        if (Thread.currentThread().isInterrupted) throw InterruptedException("OCR cancelled")
-                        engine.setPageSegMode(mode)
-                        engine.setImage(input)
-                        val result = engine.getUTF8Text().orEmpty().trim()
-                        val confidence = engine.meanConfidence().coerceIn(0, 100)
-                        // Confidence is only OCR confidence, NOT Quran verification.
-                        val arabicCount = result.count { it in '\u0621'..'\u064A' }
-                        val score = if (arabicCount > 0) confidence * 100 + minOf(arabicCount, 100) else -1
-                        if (score > bestScore) {
-                            bestScore = score
-                            bestText = result
-                        }
-                        count++
-                        engine.clear()
-                        // Fast path on clearly legible pages; still UNVERIFIED OCR.
-                        if (confidence >= 83 && arabicCount >= 30) break@recognition
-                    }
-                }
-                return Scan(
-                    bestText.take(10000), profile, count,
-                    SystemClock.elapsedRealtime() - startedAt, quality
-                )
-            } finally {
-                if (prepared !== bitmap && !prepared.isRecycled) prepared.recycle()
+            var bestText = ""
+            var bestScore = -1
+            var count = 0
+
+            fun checkCancellation() {
+                if (Thread.currentThread().isInterrupted) throw InterruptedException("OCR cancelled")
             }
+
+            fun tryModes(input: Bitmap): Boolean {
+                for (mode in modes) {
+                    checkCancellation()
+                    engine.setPageSegMode(mode)
+                    engine.setImage(input)
+                    val result = engine.getUTF8Text().orEmpty().trim()
+                    val confidence = engine.meanConfidence().coerceIn(0, 100)
+                    // Confidence is only OCR confidence, NOT Quran verification.
+                    val arabicCount = result.count { it in '\u0621'..'\u064A' }
+                    val score = if (arabicCount > 0) confidence * 100 + minOf(arabicCount, 100) else -1
+                    if (score > bestScore) {
+                        bestScore = score
+                        bestText = result
+                    }
+                    count++
+                    engine.clear()
+                    // Fast path on clearly legible pages; still UNVERIFIED OCR.
+                    if (confidence >= 83 && arabicCount >= 30) return true
+                }
+                return false
+            }
+
+            if (!tryModes(bitmap)) {
+                checkCancellation()
+                val prepared = ImagePreprocessor.normalize(bitmap)
+                try {
+                    tryModes(prepared)
+                } finally {
+                    prepared.recycle()
+                }
+            }
+            return Scan(
+                bestText.take(10000), profile, count,
+                SystemClock.elapsedRealtime() - startedAt, quality
+            )
         } finally {
             engine.recycle()
         }

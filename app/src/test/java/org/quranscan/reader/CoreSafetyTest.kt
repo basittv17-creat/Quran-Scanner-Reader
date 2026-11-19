@@ -20,6 +20,17 @@ class CoreSafetyTest {
         }
     }
 
+    @Test fun samplingChangesAtExactLimitsAndRecoversAfterInvalidBounds() {
+        assertNull(GalleryImageState.sampleSize(-1, -1))
+        assertFalse(GalleryImageState.acceptsPreview(2049, 1))
+        assertTrue(GalleryImageState.acceptsPreview(2048, 2048))
+        assertEquals(1, ImageDecodeLimits.sampleSize(1500, 1, 1500))
+        assertEquals(2, ImageDecodeLimits.sampleSize(1501, 1, 1500))
+        assertEquals(2, ImageDecodeLimits.sampleSize(3000, 1, 1500))
+        assertEquals(4, ImageDecodeLimits.sampleSize(3001, 1, 1500))
+        assertEquals(1 shl 23, ImageDecodeLimits.sampleSize(1, Int.MAX_VALUE, 256))
+    }
+
     @Test fun cropDragClampsEdgesSupportsReverseAndRejectsTinyOrNonFiniteAreas() {
         assertEquals(CropBounds(0, 0, 100, 80), CropBounds.fromDrag(100, 80, 110f, 90f, -10f, -5f))
         assertEquals(CropBounds(10, 20, 41, 61), CropBounds.fromDrag(100, 80, 40.2f, 60.1f, 10.5f, 20.8f))

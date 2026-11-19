@@ -33,4 +33,27 @@ class ScanImageQualityTest {
         assertEquals(255.0, quality.meanLuma, 0.0)
         assertFalse(quality.lowLight)
     }
+    @Test fun partialAlphaAndEdgeThresholdHaveExactResults() {
+        val quality = ScanImageQuality.measure(2, 2) { x, y ->
+            when {
+                x == 1 -> 0xff696969.toInt() // Luma 105, exactly 22 below the center.
+                y == 1 -> 0xff6a6a6a.toInt() // Luma 106, only 21 below the center.
+                else -> 0x80000000 // Half-transparent black on paper white has luma 127.
+            }
+        }
+        assertEquals(127.0, quality.meanLuma, 0.0)
+        assertEquals(50.0, quality.strongEdgePercent, 0.0)
+        assertFalse(ScanImageQuality(65.0, 0.6).lowLight)
+        assertFalse(ScanImageQuality(65.0, 0.6).lowDetail)
+    }
+
+    @Test fun extremeDimensionsKeepEveryReadInRange() {
+        val quality = ScanImageQuality.measure(Int.MAX_VALUE, 2) { x, y ->
+            assertTrue(x in 0 until Int.MAX_VALUE)
+            assertTrue(y in 0..1)
+            0xff404040.toInt()
+        }
+        assertEquals(64.0, quality.meanLuma, 0.0)
+        assertEquals(0.0, quality.strongEdgePercent, 0.0)
+    }
 }
