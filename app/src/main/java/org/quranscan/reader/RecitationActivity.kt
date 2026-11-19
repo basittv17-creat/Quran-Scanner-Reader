@@ -135,7 +135,7 @@ class RecitationActivity : ComponentActivity() {
             }, LinearLayout.LayoutParams(-1, dp(51)))
         }
         heading("Quran Scan Reader · Offline Recitation", 22f, gold)
-        heading("مکمل مستند متن اور آڈیو ابھی اس سورس پیکج میں نہیں؛ غلط عبارت سے تلاوت شروع نہیں ہوگی۔", 15f, Color.WHITE, true)
+        heading("قرآنی متن: Tanzil Uthmani v1.1۔ آڈیو پیک الگ درکار ہے؛ OCR سے خودکار تلاوت نہیں ہوتی۔", 15f, Color.WHITE, true)
         val inputs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         surahInput = EditText(this).apply {
             hint = "Surah"; setText("1"); inputType = 2; setTextColor(Color.WHITE)

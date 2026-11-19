@@ -1,0 +1,3 @@
+# Preserve publisher copyright whitespace and original Quran bytes.
+app/src/main/assets/quran/*.txt -text -whitespace
+app/src/main/assets/quran/verses.jsonl -text

@@ -22,10 +22,9 @@ This Android Studio **source** project is not a complete verified Quran reader a
 
 ## Hard blockers before a useful / reliable Quran scanner can be released
 
-1. `app/src/main/assets/quran/verses.jsonl` is still **EMPTY**, and cannot be
-   claimed as a verified 6,236-ayah Quran. Import verbatim verified Tanzil v1.1
-   text with `tools/import_tanzil.py` after separately obtaining the correct source
-   and reviewing the publisher's license and provenance. Never generate/guess ayahs.
+1. The complete 6,236-verse Tanzil Uthmani v1.1 publisher snapshot is bundled,
+   with untouched source, license notice, SHA-256 and exact round-trip validation.
+   Independent scholarly review and physical-device rendering QA remain outstanding.
 2. No permitted reciter MP3 files are included. User must obtain and independently
    review appropriately licensed recordings and import the valid audio ZIP.
 3. No licensed human-reviewed word timing data are included. Use the new pack
@@ -65,7 +64,7 @@ Arabic OCR, word timing, or a successful Android build.
 ## Sources and rights
 
 Tanzil Quran Text (Uthmani, v1.1), © Tanzil Project, CC BY 3.0: https://tanzil.net/docs/Text_License
-(complete text NOT yet bundled). Tesseract4Android + Arabic tessdata_fast (Apache-2.0),
+(complete publisher snapshot bundled). Tesseract4Android + Arabic tessdata_fast (Apache-2.0),
 attribution in `docs/APACHE-2.0.txt` and `assets/tessdata/DEBIAN_SOURCE_AND_LICENSE.txt`.
 Any audio/word timing pack is user supplied: its metadata and checksums do NOT
 independently establish authenticity, tajweed accuracy, licensing, or timings.
@@ -82,4 +81,8 @@ environment; see `docs/PHASE9_GITHUB_URDU.md` and the optional user-run
 
 ## Current audit — 19 November 2026
 
-GitHub repository is connected. The previous Actions run failed on missing View / QuranVerseCounts imports and incorrect ScrollView property names; these are corrected. The next Actions result is the authority for Android compilation. No APK/AAB commands are authorized. The bundled Quran file remains empty and audio/timing assets are absent. See `PROGRESS_REPORT.md` for the current phase assessment.
+GitHub repository is connected. The previous Actions run failed on missing View / QuranVerseCounts imports and incorrect ScrollView property names; these are corrected. The next Actions result is the authority for Android compilation. No APK/AAB commands are authorized. The complete publisher Quran snapshot is now bundled; audio/timing assets remain absent. See `PROGRESS_REPORT.md` for the current phase assessment.
+
+## Canonical text provenance
+
+Downloaded twice from the Tanzil HTTPS publisher endpoint on 2026-11-19; both responses were byte-identical. Original source and complete copyright block are retained in assets/quran. `python3 tools/verify_corpus_provenance.py` checks 114 surahs, 6,236 references, source/output SHA-256 and exact Arabic equality including every mark. These checks do not replace independent scholarly review. Tanzil permits verbatim redistribution with attribution; see https://tanzil.net/docs/Text_License. No publisher-signed checksum was available.

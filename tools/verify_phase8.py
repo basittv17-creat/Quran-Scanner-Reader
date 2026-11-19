@@ -30,7 +30,7 @@ finally:
 xml = ET.parse(root / 'app/src/main/AndroidManifest.xml').getroot()
 ns = '{http://schemas.android.com/apk/res/android}'
 assert all('INTERNET' not in p.attrib.get(ns + 'name', '') for p in xml.findall('uses-permission'))
-assert (root / 'app/src/main/assets/quran/verses.jsonl').stat().st_size == 0, 'Must not claim original Quran is bundled'
+run('python3', str(root / 'tools/verify_corpus_provenance.py'))
 model = root / 'app/src/main/assets/tessdata/ara.traineddata'
 assert hashlib.sha256(model.read_bytes()).hexdigest() == 'e3206d3dc87fd50c24a0fb9f01838615911d25168f4e64415244b67d2bb3e729'
 assert all(t in (base / 'RecitationActivity.kt').read_text() for t in [

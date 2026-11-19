@@ -1,25 +1,35 @@
-Tanzil Quran Text (Uthmani, Version 1.1)
-Copyright (C) 2007-2024 Tanzil Project
-License: Creative Commons Attribution 3.0
-
-This copy of the Quran text is carefully produced, highly verified and
-continuously monitored by a group of specialists at Tanzil Project.
-
-TERMS OF USE:
-- Permission is granted to copy and distribute verbatim copies of this text,
-  but CHANGING IT IS NOT ALLOWED.
-- This Quran text can be used in any website or application, provided that
-  its source (Tanzil Project) is clearly indicated, and a link is made to
-  tanzil.net to enable users to keep track of changes.
-- This copyright notice shall be included in all verbatim copies of the text,
-  and shall be reproduced appropriately in all files derived from or
-  containing substantial portion of this text.
+# PLEASE DO NOT REMOVE OR CHANGE THIS COPYRIGHT BLOCK
+#====================================================================
+#
+#  Tanzil Quran Text (Uthmani, Version 1.1)
+#  Copyright (C) 2007-2026 Tanzil Project
+#  License: Creative Commons Attribution 3.0
+#
+#  This copy of the Quran text is carefully produced, highly 
+#  verified and continuously monitored by a group of specialists 
+#  at Tanzil Project.
+#
+#  TERMS OF USE:
+#
+#  - Permission is granted to copy and distribute verbatim copies 
+#    of this text, but CHANGING IT IS NOT ALLOWED.
+#
+#  - This Quran text can be used in any website or application, 
+#    provided that its source (Tanzil Project) is clearly indicated, 
+#    and a link is made to tanzil.net to enable users to keep
+#    track of changes.
+#
+#  - This copyright notice shall be included in all verbatim copies 
+#    of the text, and shall be reproduced appropriately in all files 
+#    derived from or containing substantial portion of this text.
+#
+#  Please check updates at: http://tanzil.net/updates/
+#
+#====================================================================
 
 Source: https://tanzil.net/
 License: https://tanzil.net/docs/Text_License
-
-IMPORTANT: This development snapshot DOES NOT YET CONTAIN the 6236-verse corpus.
-When distributing the imported text retain this notice, the source attribution,
-and the verbatim Arabic strings. The JSONL representation changes only the
-container format and preserves each imported Arabic field byte-for-byte after
-UTF-8 decoding. Obtain/review the authentic source and verify source hashes.
+Exact download URL: https://tanzil.net/pub/download/index.php?agree=true&quranType=uthmani&outType=txt-2&marks=true&sajdah=true
+Retrieved: 2026-11-19; two identical HTTPS downloads.
+Source SHA-256: 18c719bb3ba26d32ef457f40dad77cd28c4c5a34156833e26a8e5fcfdd246fb1
+Upstream did not supply a separate signed digest. Local hashes establish byte identity, not independent scholarly review.

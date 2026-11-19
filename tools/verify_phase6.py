@@ -30,7 +30,7 @@ assert 'LiveScanActivity::class.java' in main
 assert 'ACTION_IMAGE_CAPTURE' not in main
 model = root / 'app/src/main/assets/tessdata/ara.traineddata'
 assert hashlib.sha256(model.read_bytes()).hexdigest() == 'e3206d3dc87fd50c24a0fb9f01838615911d25168f4e64415244b67d2bb3e729'
-assert (root/'app/src/main/assets/quran/verses.jsonl').stat().st_size == 0
+subprocess.run(['python3', str(root/'tools/verify_corpus_provenance.py')], check=True)
 out = root / 'tools/.phase6-gate-check.jar'
 try:
     subprocess.run(['kotlinc', str(src/'core/CameraScanGate.kt'),
@@ -41,5 +41,5 @@ finally:
     if out.exists(): out.unlink()
 print('PASS: CameraX manifest and dependencies present')
 print('PASS: live frame capture / manual capture / gallery route source checks')
-print('PASS: bundled OCR SHA, zero internet permissions, empty unverified Quran corpus')
+print('PASS: bundled OCR SHA, zero internet permissions, bundled Quran integrity (not independent scholarly review)')
 print('NOT RUN: Android SDK build, device CameraX runtime, real Mushaf OCR accuracy')

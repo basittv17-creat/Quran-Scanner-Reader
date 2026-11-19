@@ -218,8 +218,8 @@ class MainActivity : Activity() {
         screen("About")
         label("Quran Scan Reader Phase 9 CameraX + Arabic OCR + local recitation engine baseline.\n\n" +
             "OCR: Tesseract4Android + Arabic tessdata_fast (Apache-2.0).\n" +
-            "Canonical Quran source planned: Tanzil Uthmani v1.1 (CC BY 3.0), https://tanzil.net.\n" +
-            "The Quran corpus is NOT yet bundled. Arabic OCR has not been benchmarked on actual Pakistani or Madani mushafs.\n" +
+            "Canonical Quran source: Tanzil Uthmani v1.1 (CC BY 3.0), https://tanzil.net.\n" +
+            "Tanzil Uthmani v1.1 publisher text is bundled verbatim with integrity checks; independent scholarly and rendering review remains. Arabic OCR has not been benchmarked on actual Pakistani or Madani mushafs.\n" +
             "Live CameraX preview and sampled OCR are implemented in source, but not yet tested on physical Android. " +
             "A local ayah-audio importer and player are implemented, but no licensed recordings have been bundled. Word-level timestamp import and highlighting code exist; reviewed timing data and precise diacritic checking remain missing.", 14)
         action("Back") { menu() }
