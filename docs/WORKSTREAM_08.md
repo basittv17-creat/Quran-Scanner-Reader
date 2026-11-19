@@ -24,3 +24,11 @@ Local corpus verification passed for all 6,236 verses including marks and notice
 | Capture and scoring | **BLOCKED.** Need the frozen, separately hashed page inventory, split, signed-off labels, representative device exports and exact model identities. See [OCR_BENCHMARK.md](OCR_BENCHMARK.md). No real-page accuracy was measured. |
 
 No external images or reference labels were acquired or added. Existing Drive checkpoints were left in place.
+
+## Published checkpoint
+
+[Commit 00b3486](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/00b34866e28e688c08a5ef524f2bee9232c5a550) was added to main after fast-forwarding over the concurrent localization commit `74ce21d`. The [Actions log for run 44528998064](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44528998064/job/135577047004) records successful Kotlin compilation and resource processing, 29 JVM tests with zero failures/errors/skips, 15 Python benchmark tests, lint 0 errors / 40 warnings, and no APK/AAB. The full source suite ran on Actions. Local Gradle and kotlinc were unavailable.
+
+[Versioned source ZIP for 00b3486](https://drive.google.com/file/d/1qDWDSHSvcZ1dhFVIjVT5OhktFRBNr1hH/view) was uploaded as a new file. SHA-256: `757d959c13c3c8d04b276762088d116940fea5f4666fcb521ba005e5dff7508a`. Local ZIP validation checked archive integrity, both exact corpus digests and absence of APK/AAB entries.
+
+The current app uses ranked candidate suggestions in its camera and gallery flows. The protocol now specifies how to record predictions without confusing alternatives with successive visible ayahs. A [Commons CC0 image lead](https://commons.wikimedia.org/wiki/File:Quran_in_a_page.jpg) lacks verified target edition and photographed-page provenance and was excluded.

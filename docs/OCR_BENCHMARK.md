@@ -116,7 +116,10 @@ representative devices before relying on it in accuracy comparisons.
    captures are correlated. Use page-level resampling if reporting confidence
    intervals.
 
-The app's conservative matcher verifies one whole verse at a time. Its
-internal normalization and exact-match score serve candidate selection. Export
-raw OCR for strict CER/WER and record only references actually emitted by the
-tested path. Keep user confirmation outcomes separate from engine predictions.
+ConservativeVerseMatcher verifies one whole verse at a time. The current
+camera and gallery activities use VerseCandidates.suggest and present
+candidate verses for manual review. For each evaluation, name the tested
+path and freeze how it converts results into predictions. For ranked
+suggestions, document the selection and abstention rule. A ranked list of
+alternatives cannot be interpreted as an ordered list of visible ayahs.
+Use raw OCR for strict CER/WER and record user confirmation separately.
