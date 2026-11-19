@@ -96,21 +96,23 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(-1, -2))
         }
         side.addView(TextView(this).apply { text = "Quran Scan Reader"; textSize = 23f; setTextColor(gold) })
-        item("Home") { home() }
-        item("Live scanner") { camera() }
-        item("Gallery scanner") { gallery() }
-        item("Read Quran / recitation") { recitation() }
-        item("Settings") { settings() }
-        item("Help") { help() }
-        item("About / text source") { about() }
-        item("Exit") { finishAndRemoveTask() }
-        item("Offline design preview") { preview() }
+        item(getString(R.string.nav_home)) { home() }
+        item(getString(R.string.nav_camera)) { camera() }
+        item(getString(R.string.nav_gallery)) { gallery() }
+        item(getString(R.string.nav_recitation)) { recitation() }
+        item(getString(R.string.nav_settings)) { settings() }
+        item(getString(R.string.nav_help)) { help() }
+        item(getString(R.string.nav_about)) { about() }
+        item(getString(R.string.nav_exit)) { finishAndRemoveTask() }
+        item(getString(R.string.nav_preview)) { preview() }
         drawer.addView(ScrollView(this).apply { addView(side) }, DrawerLayout.LayoutParams(
             (280 * resources.displayMetrics.density).toInt(), -1, Gravity.START))
         setContentView(drawer)
         drawer.applyReaderInsets()
         root.addView(Button(this).apply {
-            text = "☰ Menu"; contentDescription = "Open navigation menu"
+            text = getString(R.string.nav_menu); contentDescription = getString(R.string.nav_menu_description)
+            isAllCaps = false
+            minHeight = (48 * resources.displayMetrics.density).toInt()
             setOnClickListener { drawer.openDrawer(GravityCompat.START) }
         }, LinearLayout.LayoutParams(-2, -2))
         label(title, 25, gold)
@@ -154,9 +156,8 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
         }
         root.addView(openingVerse)
-        label("Offline Quran text • Camera and gallery scanning", 14)
         val corpusStatus = TextView(this).apply {
-            text = "Checking offline Quran text…"
+            text = getString(R.string.home_corpus_loading)
             setTextColor(gold)
             gravity = Gravity.CENTER
         }
@@ -166,9 +167,9 @@ class MainActivity : Activity() {
             val complete = runCatching { db.isComplete() }.getOrNull()
             val firstAyah = if (complete == true) db.find(VerseId(1, 1)) else null
             val status = when (complete) {
-                true -> "Quran text: ${db.count()}/6236 | Structurally complete. Review pending."
-                false -> "Quran text is incomplete. Matching disabled."
-                null -> "Quran corpus checksum error. Matching disabled."
+                true -> getString(R.string.home_corpus_available, db.count())
+                false -> getString(R.string.home_corpus_incomplete)
+                null -> getString(R.string.home_corpus_invalid)
             }
             runOnUiThread {
                 if (token != scanToken || isFinishing || isDestroyed) return@runOnUiThread
@@ -179,15 +180,14 @@ class MainActivity : Activity() {
                 }
             }
         }
-        label("SCAN THE HOLY QURAN", 15, gold)
-        action("📷 Live Quran Scan") { camera() }
-        action("▧ Upload Quran Picture") { gallery() }
-        action("▶ Offline Recitation & Word Highlight · Phase 8") { recitation() }
-        action("Settings") { settings() }
-        action("Help") { help() }
-        action("About") { about() }
-        action("WebView design preview") { preview() }
-        label("🔒 Offline by design · No Internet permission · OCR results unverified", 12)
+        action(getString(R.string.nav_camera)) { camera() }
+        action(getString(R.string.nav_gallery)) { gallery() }
+        action(getString(R.string.nav_recitation)) { recitation() }
+        action(getString(R.string.nav_settings)) { settings() }
+        action(getString(R.string.nav_help)) { help() }
+        action(getString(R.string.nav_about)) { about() }
+        action(getString(R.string.nav_preview)) { preview() }
+        label(getString(R.string.home_privacy), 12)
     }
 
     private fun recitation(surah: Int = 1, ayah: Int = 1, scannedText: String? = null) {
@@ -321,7 +321,7 @@ class MainActivity : Activity() {
         root.addView(scanImage, LinearLayout.LayoutParams(-1, (180 * resources.displayMetrics.density).toInt()))
         val progress = ProgressBar(this)
         root.addView(progress)
-        action("Home") { home() }
+        action(getString(R.string.nav_home)) { home() }
         worker.execute {
             val response = runCatching {
                 val ocr = OfflineArabicOcr(applicationContext).read(bitmap, profile)
@@ -370,7 +370,7 @@ class MainActivity : Activity() {
 
     private fun menu() { drawer.openDrawer(GravityCompat.START) }
     private fun settings() {
-        screen("Settings")
+        screen(getString(R.string.nav_settings))
         label("OCR style selection (same generic Arabic model; script training and print testing pending)", 14)
         action("OCR profile: $profile  — change") {
             val options = OfflineArabicOcr.Profile.entries
@@ -402,18 +402,18 @@ class MainActivity : Activity() {
         action("Back") { menu() }
     }
     private fun help() {
-        screen("Help")
+        screen(getString(R.string.nav_help))
         label("Live scan: allow camera permission, keep the page steady in good light, tap to focus, and drag across the preview to select the scan area. Darker/Brighter adjusts supported cameras. Pause auto still allows manual Scan photo.", 16)
         label("Upload picture: choose a local, sharp image. Rotation is read from EXIF. Drag a selection around the text or scan the whole picture.", 16)
         label("Every OCR result is unverified. Open a candidate, compare the complete canonical verse with your printed page and check the Surah/Ayah before pressing Play. No OCR result starts recitation automatically.", 16)
         label("Recitation: import your legally obtained ayah MP3 ZIP. Word playback additionally needs reviewed timings for those exact recordings and this text. Missing or mismatched files disable playback/highlighting.", 16)
         label("Privacy: images are processed locally in memory. No Internet permission, image uploads or analytics. Imported recordings and timing packs stay in app-private storage; Android app storage controls can remove them.", 16)
         label("This development source has no validated Pakistani/Madani OCR accuracy or device certification. Arabic text follows Tanzil Uthmani v1.1; it does not reproduce a Pakistani 15-line page layout.", 15, gold)
-        action("Home") { home() }
+        action(getString(R.string.nav_home)) { home() }
     }
 
     private fun about() {
-        screen("About")
+        screen(getString(R.string.nav_about))
         label("Quran Scan Reader Phase 9 CameraX + Arabic OCR + local recitation engine baseline.\n\n" +
             "OCR: Tesseract4Android + Arabic tessdata_fast (Apache-2.0).\n" +
             "Canonical Quran source: Tanzil Uthmani v1.1 (CC BY 3.0), https://tanzil.net.\n" +

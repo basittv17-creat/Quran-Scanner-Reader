@@ -26,4 +26,20 @@
     <string name="import_busy">درآمد اور جانچ جاری ہے۔ مکمل ہونے تک تلاوت اور آیت کا انتخاب رکا ہوا ہے۔</string>
     <string name="scan_comparison_unverified">اسکین شدہ عبارت غیر مصدقہ ہے۔ نیچے موجود مکمل آیت سے موازنہ کریں۔</string>
     <string name="canonical_ayah_reference">مستند آیت %1$d:%2$d</string>
+    <string name="nav_home">ہوم</string>
+    <string name="nav_camera">براہِ راست قرآن اسکین</string>
+    <string name="nav_gallery">قرآن کی تصویر منتخب کریں</string>
+    <string name="nav_recitation">آف لائن تلاوت</string>
+    <string name="nav_settings">ترتیبات</string>
+    <string name="nav_help">مدد</string>
+    <string name="nav_about">ایپ کا تعارف</string>
+    <string name="nav_exit">باہر نکلیں</string>
+    <string name="nav_preview">آف لائن ڈیزائن کا پیش منظر</string>
+    <string name="nav_menu">مینو</string>
+    <string name="nav_menu_description">نیویگیشن مینو کھولیں</string>
+    <string name="home_corpus_loading">آف لائن قرآنی متن کی جانچ ہو رہی ہے…</string>
+    <string name="home_corpus_available">قرآنی متن کی %1$d از 6,236 آیات دستیاب ہیں۔ علمی جائزہ باقی ہے۔</string>
+    <string name="home_corpus_incomplete">قرآنی متن نامکمل ہے۔ آیت کی شناخت بند ہے۔</string>
+    <string name="home_corpus_invalid">قرآنی متن کی سالمیت کی جانچ ناکام ہوئی۔ آیت کی شناخت بند ہے۔</string>
+    <string name="home_privacy">اسکین آف لائن ہوتا ہے۔ نتائج کی تصدیق درکار ہے۔</string>
 </resources>
