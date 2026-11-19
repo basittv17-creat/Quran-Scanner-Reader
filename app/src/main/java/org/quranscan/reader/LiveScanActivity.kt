@@ -130,7 +130,8 @@ class LiveScanActivity : ComponentActivity() {
             text = "Point the camera at a well-lit Quran page. Text below is unverified OCR. " +
                 "No recitation will play until a trusted Quran corpus and verified audio are installed."
             textDirection = View.TEXT_DIRECTION_RTL
-            gravity = Gravity.RIGHT
+            gravity = Gravity.START
+                            layoutDirection = View.LAYOUT_DIRECTION_RTL
             setTextColor(Color.WHITE)
             textSize = 17f
             setPadding(dp(12), dp(12), dp(12), dp(12))

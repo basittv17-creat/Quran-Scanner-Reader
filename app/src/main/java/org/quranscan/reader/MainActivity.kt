@@ -232,7 +232,8 @@ class MainActivity : Activity() {
                             textSize = 21f
                             setTextColor(Color.WHITE)
                             textDirection = View.TEXT_DIRECTION_RTL
-                            gravity = Gravity.RIGHT
+                            gravity = Gravity.START
+                            layoutDirection = View.LAYOUT_DIRECTION_RTL
                             setPadding(12, 12, 12, 12)
                         }
                         scroll.addView(raw)

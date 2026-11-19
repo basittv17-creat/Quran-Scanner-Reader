@@ -88,3 +88,7 @@ Downloaded twice from the Tanzil HTTPS publisher endpoint on 2026-11-19; both re
 ## Expanded verification and UI
 
 CI now runs source/dependency version policy, publisher corpus provenance, Python/pure Kotlin checks, `:app:compileDebugKotlin`, `:app:processDebugResources`, `:app:testDebugUnitTest`, and `:app:lintDebug`. No packaging tasks are used. Seven JVM safety tests cover ambiguous/incomplete matches, invalid references, frame throttling, timing boundaries/digests and unsafe audio manifests. Gallery decoding runs off the main thread with EXIF orientation handling. The canonical corpus is immutable and cached once per process. These improvements require Android device QA; consult `docs/EXTERNAL_ASSETS_AND_QA.md`.
+
+## Latest source delivery
+
+The full quality run [44465501620](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44465501620) passed compilation, resources, seven JVM tests (zero failed/skipped), Python checks and lint (zero errors, 43 warnings). Final small security/UI refinements are checked by the following Actions run. The original 59 source files are retained. See [PROGRESS_REPORT.md](PROGRESS_REPORT.md) for each phase, commit/run links, resolved failures, exact text digests and external asset/device blockers. **This remains an incomplete development source delivery.**

@@ -20,11 +20,13 @@ class ScanReticleView(context: Context) : View(context) {
         textAlign = Paint.Align.CENTER
     }
 
+    private val reticle = RectF()
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val w = width.toFloat()
         val h = height.toFloat()
-        val r = RectF(w * .09f, h * .20f, w * .91f, h * .80f)
+        val r = reticle.apply { set(w * .09f, h * .20f, w * .91f, h * .80f) }
         val len = minOf(w, h) * .085f
         // Four corner guides, without obscuring Quran print.
         canvas.drawLine(r.left, r.top, r.left + len, r.top, line)

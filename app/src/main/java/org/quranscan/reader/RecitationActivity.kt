@@ -113,7 +113,6 @@ class RecitationActivity : ComponentActivity() {
             surahInput.setText(s.toString()); ayahInput.setText(a.toString())
         }
         loadSelection()
-        timer.post(highlightLoop)
     }
 
     private fun buildScreen() {
@@ -247,7 +246,13 @@ class RecitationActivity : ComponentActivity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
+    override fun onStart() {
+        super.onStart()
+        timer.post(highlightLoop)
+    }
+
     override fun onStop() {
+        timer.removeCallbacks(highlightLoop)
         player.pause()
         super.onStop()
     }
