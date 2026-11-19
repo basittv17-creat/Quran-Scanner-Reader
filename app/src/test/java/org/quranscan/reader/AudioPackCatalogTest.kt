@@ -50,7 +50,10 @@ class AudioPackCatalogTest {
             assertTrue(runCatching { catalog.directory(id) }.isFailure)
         }
         catalog.publishValidated(stage(root, "a"))
-        File(root, "selection/active/id").writeText("../active")
+        val record = File(root, "selection/active/id")
+        record.delete()
+        assertTrue(runCatching { catalog.selectedDirectory() }.isFailure)
+        record.writeText("../active")
         assertTrue(runCatching { catalog.selectedDirectory() }.isFailure)
     }
     @Test fun capacityRejectionPreservesSelectionAndStaging() = withCatalog { root, catalog ->

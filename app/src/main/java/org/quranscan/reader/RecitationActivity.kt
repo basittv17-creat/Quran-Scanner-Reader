@@ -84,11 +84,11 @@ class RecitationActivity : ComponentActivity() {
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 importBusy = false
-                status.text = result.fold(
+                val notice = result.fold(
                     onSuccess = { "Audio clips: ${it.entries.size}. Source not independently audited. Existing word timings may no longer apply." },
                     onFailure = { "Audio import rejected: ${it.message ?: "unknown error"}" }
                 )
-                loadSelection()
+                loadSelection(notice = notice)
             }
         }
     }
@@ -103,11 +103,11 @@ class RecitationActivity : ComponentActivity() {
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 importBusy = false
-                status.text = result.fold(
+                val notice = result.fold(
                     onSuccess = { "Timing files accepted: ${it.entries.size}. Alignment accuracy is NOT independently authenticated." },
                     onFailure = { "Timing import rejected: ${it.message ?: "unknown error"}" }
                 )
-                loadSelection()
+                loadSelection(notice = notice)
             }
         }
     }
@@ -151,7 +151,7 @@ class RecitationActivity : ComponentActivity() {
         fun button(value: String, callback: () -> Unit) {
             column.addView(Button(this).apply {
                 text = value; isAllCaps = false; setOnClickListener {
-                    if (importBusy) status.text = "Import in progress. Playback and selection are paused until validation finishes."
+                    if (importBusy) status.setText(R.string.import_busy)
                     else callback()
                 }
             }, LinearLayout.LayoutParams(-1, dp(51)))
@@ -277,7 +277,7 @@ class RecitationActivity : ComponentActivity() {
         verseView.text = WordHighlightText.decorate(fullText, index)
     }
 
-    private fun loadSelection(restoredWord: Int = 0) {
+    private fun loadSelection(restoredWord: Int = 0, notice: String? = null) {
         player.stop()
         confirmation.isChecked = false
         confirmation.isEnabled = false
@@ -313,7 +313,7 @@ class RecitationActivity : ComponentActivity() {
                     timing = windows
                     chosenWord = restoredWord.coerceIn(0, (windows?.size ?: 1) - 1)
                     verseView.text = verse
-                    status.text = when {
+                    status.text = (notice?.let { "$it\n" } ?: "") + when {
                         audio?.entries?.get(key) == null -> "No licensed local ayah recording installed for $s:$a."
                         windows == null -> "${audio?.reciter}: ayah audio exists, but no validated word timings for this exact audio/text."
                         else -> "${audio?.reciter}: ${windows.size} user-supplied timing windows loaded; listening review is still required."
@@ -354,7 +354,7 @@ class RecitationActivity : ComponentActivity() {
             return
         }
         status.text = if (followWords) "Following audio timing; approximate MP3 seek and unverified timing quality." else "Preparing local full ayah audio…"
-        player.play(file)
+        player.play(file, requiredDurationMs = if (followWords) timing?.lastOrNull()?.endMs ?: 0 else 0)
     }
 
     private fun selectWord(index: Int) {

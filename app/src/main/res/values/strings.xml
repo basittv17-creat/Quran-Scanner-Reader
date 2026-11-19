@@ -16,4 +16,5 @@
     <string name="confirm_remove_pack">یہ مقامی آڈیو پیک حذف کریں؟
 %1$s</string>
     <string name="remove_pack">حذف کریں</string>
+    <string name="import_busy">درآمد اور جانچ جاری ہے۔ مکمل ہونے تک تلاوت اور آیت کا انتخاب رکا ہوا ہے۔</string>
 </resources>

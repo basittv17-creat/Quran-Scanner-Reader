@@ -12,8 +12,7 @@ def run(*args):
     subprocess.run(list(args), check=True, timeout=120)
 
 run('python3', str(root / 'tools/test_import_tanzil.py'))
-run('python3', str(root / 'tools/verify_phase6.py'))
-run('python3', str(root / 'tools/test_phase7_packaging.py'))
+run('python3', str(root / 'tools/verify_phase7.py'))
 run('python3', str(root / 'tools/test_phase8_packaging.py'))
 
 jar = root / 'tools/.phase8-word-check.jar'

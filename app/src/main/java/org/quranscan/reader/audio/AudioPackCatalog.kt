@@ -18,8 +18,9 @@ class AudioPackCatalog(private val root: File) {
     private val selectionRoot get() = File(root, "selection")
 
     fun selectedId(): String = synchronized(lock) {
-        val selected = File(PackActivation.recover(selectionRoot), "id")
-        if (!selected.exists()) "legacy" else {
+        val record = PackActivation.recover(selectionRoot)
+        val selected = File(record, "id")
+        if (!record.exists()) "legacy" else {
             require(selected.isFile && selected.length() <= 64) { "Invalid pack selection record" }
             selected.readText(Charsets.UTF_8).also { require(validId(it)) { "Invalid selected pack ID" } }
         }

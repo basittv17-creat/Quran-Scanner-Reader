@@ -64,7 +64,7 @@ class OfflineAyahPlayer(
         }
     }
 
-    fun play(file: File, startMs: Int = 0, endMs: Int? = null) {
+    fun play(file: File, startMs: Int = 0, endMs: Int? = null, requiredDurationMs: Int = 0) {
         stop()
         if (released) return
         val mp = MediaPlayer()
@@ -72,6 +72,7 @@ class OfflineAyahPlayer(
         try {
             require(file.isFile && file.length() > 0 &&
                 file.name.matches(Regex("[0-9]{3}_[0-9]{3}\\.mp3"))) { "Missing local verse recording" }
+            require(requiredDurationMs >= 0) { "Invalid timing duration" }
             require(startMs >= 0 && (endMs == null || endMs > startMs)) { "Invalid audio segment" }
             segmentEnd = endMs
             playWhenReady = true
@@ -90,6 +91,7 @@ class OfflineAyahPlayer(
             mp.setOnPreparedListener {
                 if (player !== mp) return@setOnPreparedListener
                 try {
+                    require(requiredDurationMs <= mp.duration) { "Word timeline extends beyond this recording" }
                     require(startMs < mp.duration && (endMs == null || endMs <= mp.duration)) {
                         "Word timing is outside audio duration"
                     }
