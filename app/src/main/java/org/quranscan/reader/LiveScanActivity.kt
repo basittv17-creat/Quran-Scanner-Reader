@@ -101,6 +101,7 @@ class LiveScanActivity : ComponentActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var status: TextView
     private lateinit var rawOutput: TextView
+    private lateinit var resultGuidance: TextView
     private lateinit var togglePause: Button
     private lateinit var reviewContainer: LinearLayout
     private var profile = OfflineArabicOcr.Profile.AUTO
@@ -118,7 +119,8 @@ class LiveScanActivity : ComponentActivity() {
                 getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getString("profile", "AUTO") ?: "AUTO"
             )
         }.getOrDefault(OfflineArabicOcr.Profile.AUTO)
-        paused.set(getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getBoolean("auto_scan_paused", false))
+        // Recreated screens wait for a new scan or an explicit automatic-scan resume.
+        paused.set(savedInstanceState != null || getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getBoolean("auto_scan_paused", false))
         savedInstanceState?.getFloatArray("live_scan_region")?.takeIf { it.size == 4 }?.let {
             scanRegion = LiveScanRegion.selection(it[0], it[1], it[2], it[3]) ?: LiveScanRegion.DEFAULT
         }
@@ -142,8 +144,11 @@ class LiveScanActivity : ComponentActivity() {
             setBackgroundColor(green)
             setPadding(dp(12), dp(12), dp(12), dp(12))
         }
-        setContentView(root)
-        root.applyReaderInsets()
+        setContentView(ScrollView(this).apply {
+            isFillViewport = true
+            addView(root)
+            applyReaderInsets()
+        })
         val title = TextView(this).apply {
             text = getString(R.string.live_title)
             textSize = 19f
@@ -156,35 +161,44 @@ class LiveScanActivity : ComponentActivity() {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             scaleType = PreviewView.ScaleType.FILL_CENTER
             contentDescription = getString(R.string.live_crop_hint)
+            var tappedPoint: Pair<Float, Float>? = null
+            setOnClickListener {
+                val (x, y) = tappedPoint ?: (width / 2f to height / 2f)
+                focusPreview(x, y)
+            }
             setOnTouchListener { view, event ->
                 if (width <= 0 || height <= 0) return@setOnTouchListener false
                 val x = (event.x / width).coerceIn(0f, 1f)
                 val y = (event.y / height).coerceIn(0f, 1f)
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
+                        view.parent?.requestDisallowInterceptTouchEvent(true)
                         dragX = x
                         dragY = y
                     }
                     MotionEvent.ACTION_UP -> {
+                        view.parent?.requestDisallowInterceptTouchEvent(false)
                         val region = LiveScanRegion.selection(dragX, dragY, x, y)
                         if (region != null) {
                             setScanRegion(region)
                         } else if (kotlin.math.abs(x - dragX) * width < dp(12) &&
                             kotlin.math.abs(y - dragY) * height < dp(12)) {
+                            tappedPoint = event.x to event.y
                             view.performClick()
-                            camera?.takeIf { hasCameraPermission() }?.let { current ->
-                                val point = meteringPointFactory.createPoint(event.x, event.y)
-                                current.cameraControl.startFocusAndMetering(FocusMeteringAction.Builder(point).build())
-                            }
+                            tappedPoint = null
                         }
                     }
+                    MotionEvent.ACTION_CANCEL -> view.parent?.requestDisallowInterceptTouchEvent(false)
                 }
                 true
             }
         }
         val frame = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         frame.addView(previewView, FrameLayout.LayoutParams(-1, -1))
-        reticle = ScanReticleView(this).apply { region = scanRegion }
+        reticle = ScanReticleView(this).apply {
+            region = scanRegion
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
         frame.addView(reticle, FrameLayout.LayoutParams(-1, -1))
         previewView.addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
             if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) {
@@ -192,7 +206,7 @@ class LiveScanActivity : ComponentActivity() {
                 startCamera()
             }
         }
-        root.addView(frame, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(frame, LinearLayout.LayoutParams(-1, dp(260)))
         status = TextView(this).apply {
             textSize = 13f
             setTextColor(gold)
@@ -218,6 +232,7 @@ class LiveScanActivity : ComponentActivity() {
         fun exposureButton(title: String, delta: Int) {
             exposure.addView(Button(this).apply {
                 text = title; isAllCaps = false
+                minHeight = dp(48)
                 setOnClickListener {
                     val current = camera?.takeIf { hasCameraPermission() } ?: return@setOnClickListener
                     val state = current.cameraInfo.exposureState
@@ -237,38 +252,41 @@ class LiveScanActivity : ComponentActivity() {
         exposure.addView(Button(this).apply {
             setText(R.string.live_crop_reset)
             isAllCaps = false
+            minHeight = dp(48)
             setOnClickListener { setScanRegion(LiveScanRegion.DEFAULT) }
         }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(exposure)
         root.addView(Button(this).apply {
             setText(R.string.live_scan_full_image)
             isAllCaps = false
+            minHeight = dp(48)
             setOnClickListener { setScanRegion(LiveScanRegion.FULL_IMAGE) }
         }, LinearLayout.LayoutParams(-1, -2))
         rawOutput = TextView(this).apply {
-            text = getString(R.string.live_initial_guidance)
+            visibility = View.GONE
             textDirection = View.TEXT_DIRECTION_RTL
             gravity = Gravity.START
-                            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
             setTextColor(Color.WHITE)
             textSize = 17f
             setPadding(dp(12), dp(12), dp(12), dp(12))
             setBackgroundColor(Color.rgb(12, 83, 65))
         }
-        val scroller = ScrollView(this).apply {
-            addView(rawOutput)
-            isFillViewport = true
-        }
         reviewContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroller.removeView(rawOutput)
-        val results = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(rawOutput)
-            addView(reviewContainer)
+        resultGuidance = TextView(this).apply {
+            setText(R.string.live_initial_guidance)
+            setTextColor(Color.WHITE)
+            setPadding(dp(12), dp(12), dp(12), dp(12))
         }
-        scroller.addView(results)
-        // Candidates share the scroll area so all review controls remain reachable.
-        root.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(resultGuidance)
+        root.addView(rawOutput)
+        root.addView(reviewContainer)
+    }
+
+    private fun focusPreview(x: Float, y: Float) {
+        val current = camera?.takeIf { hasCameraPermission() } ?: return
+        val point = previewView.meteringPointFactory.createPoint(x, y)
+        current.cameraControl.startFocusAndMetering(FocusMeteringAction.Builder(point).build())
     }
 
     private fun setScanRegion(region: LiveScanRegion) {
@@ -276,7 +294,10 @@ class LiveScanActivity : ComponentActivity() {
         reticle.region = region
         reticle.invalidate()
         reviewContainer.removeAllViews()
-        rawOutput.setText(if (region.useFullImage) R.string.live_scan_full_image_selected else R.string.live_crop_updated)
+        val guidance = getString(if (region.useFullImage) R.string.live_scan_full_image_selected else R.string.live_crop_updated)
+        rawOutput.visibility = View.GONE
+        resultGuidance.text = guidance
+        resultGuidance.announceForAccessibility(guidance)
         gate.resetInterval()
     }
 
@@ -288,7 +309,8 @@ class LiveScanActivity : ComponentActivity() {
     private fun showPermissionDenied() {
         releaseCamera()
         status.setText(R.string.live_permission_denied)
-        rawOutput.setText(R.string.live_initial_guidance)
+        rawOutput.visibility = View.GONE
+        resultGuidance.setText(R.string.live_initial_guidance)
         reviewContainer.removeAllViews()
     }
 
@@ -400,7 +422,7 @@ class LiveScanActivity : ComponentActivity() {
             toUprightBitmap(image, region)
         } catch (e: Exception) {
             scan?.let { gate.finish(it) }
-            postStatus("Frame conversion failed: ${e.message ?: "unknown"}", session, region)
+            postStatus(getString(R.string.live_frame_failed), session, region)
             return
         } finally {
             image.close()
@@ -454,7 +476,7 @@ class LiveScanActivity : ComponentActivity() {
                         toUprightBitmap(image, region)
                     } catch (e: Exception) {
                         gate.finish(scan)
-                        postStatus("Capture failed safely: ${e.message ?: "unknown"}", session, region)
+                        postStatus(getString(R.string.live_capture_failed), session, region)
                         return
                     } finally {
                         image.close()
@@ -464,7 +486,7 @@ class LiveScanActivity : ComponentActivity() {
 
                 override fun onError(exception: ImageCaptureException) {
                     gate.finish(scan)
-                    postStatus("Camera capture error: ${exception.message ?: "unknown"}", session, region)
+                    postStatus(getString(R.string.live_capture_error), session, region)
                 }
             })
         } catch (_: Exception) {
@@ -552,6 +574,7 @@ class LiveScanActivity : ComponentActivity() {
                         val btn = Button(this).apply {
                             text = getString(R.string.scan_review_candidate, candidate.id.surah, candidate.id.ayah)
                             isAllCaps = false
+                            minHeight = dp(48)
                             setOnClickListener {
                                 startActivity(Intent(this@LiveScanActivity, RecitationActivity::class.java).apply {
                                     putExtra(RecitationActivity.EXTRA_SURAH, candidate.id.surah)
@@ -561,29 +584,32 @@ class LiveScanActivity : ComponentActivity() {
                                 })
                             }
                         }
-                        reviewContainer.addView(btn)
+                        reviewContainer.addView(TextView(this).apply {
+                            text = candidate.canonicalArabic
+                            textDirection = View.TEXT_DIRECTION_RTL
+                            textSize = 19f
+                            setTextColor(Color.WHITE)
+                        }, LinearLayout.LayoutParams(-1, -2))
+                        reviewContainer.addView(btn, LinearLayout.LayoutParams(-1, -2))
                     }
                 }
                 val result = scan.rawUnverifiedText.trim()
-                rawOutput.text = if (result.isEmpty())
-                    getString(R.string.live_empty_result)
-                else buildString {
-                    appendLine(getString(R.string.gallery_ocr_unverified))
-                    appendLine()
-                    append(result.take(1800))
-                    append("\n\n")
-                    if (!complete) append(getString(R.string.live_no_reference))
-                    else if (candidates.isEmpty()) append(getString(R.string.live_no_candidate))
-                    else {
-                        appendLine(getString(R.string.gallery_possible_matches))
-                        candidates.forEach { append("${it.id.surah}:${it.id.ayah} — ${it.canonicalArabic}\n") }
-                    }
-                }
+                rawOutput.text = result.take(1800)
+                rawOutput.visibility = if (result.isEmpty()) View.GONE else View.VISIBLE
+                resultGuidance.text = if (result.isEmpty()) getString(R.string.live_empty_result)
+                else listOf(
+                    getString(R.string.gallery_ocr_unverified),
+                    getString(when {
+                        !complete -> R.string.live_no_reference
+                        candidates.isEmpty() -> R.string.live_no_candidate
+                        else -> R.string.gallery_possible_matches
+                    })
+                ).joinToString("\n")
                 val summary = getString(R.string.scan_processing_summary, scan.variantsChecked, scan.elapsedMs)
                 showStatus(listOfNotNull(summary, scan.quality.guidance(this)).joinToString("\n"))
             }
         } catch (e: Exception) {
-            postStatus("OCR failed safely: ${e.message ?: "unknown"}", claim.session, region)
+            postStatus(getString(R.string.live_ocr_failed), claim.session, region)
         } finally {
             bitmap.recycle()
             gate.finish(claim)

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="live_crop_hint">کیمرے کا منظر۔ فوکس کے لیے تھپتھپائیں یا اسکین کا حصہ منتخب کرنے کے لیے صفحے پر انگلی کھینچیں۔</string>
+    <string name="live_crop_hint">کیمرے کا منظر۔ درمیان میں فوکس کرنے کے لیے اسے فعال کریں۔ حصہ منتخب کرنے کے لیے انگلی کھینچیں یا پوری تصویر کا بٹن استعمال کریں۔</string>
     <string name="live_crop_reset">اسکین کا حصہ بحال کریں</string>
-    <string name="live_crop_updated">اسکین کا حصہ بدل گیا۔ تصویر اسکین کریں یا خودکار اسکین کا انتظار کریں۔</string>
+    <string name="live_crop_updated">اسکین کا حصہ بدل گیا ہے۔ ابھی اسکین کرنے کے لیے تصویر اسکین کریں کا بٹن استعمال کریں۔</string>
     <string name="scan_quality_low_light">منتخب حصہ تاریک لگ رہا ہے۔ روشنی بڑھا کر دوبارہ کوشش کریں۔</string>
     <string name="scan_quality_low_detail">منتخب حصے کی تفصیل کم ہے۔ کیمرا ساکن رکھیں، دوبارہ فوکس کریں یا زیادہ واضح تصویر منتخب کریں۔</string>
     <string name="scan_processing_summary">او سی آر %2$d ملی سیکنڈ میں مکمل ہوا · %1$d طریقے آزمائے گئے</string>
@@ -67,7 +67,7 @@
     <string name="help_validation">اصل اینڈرائیڈ فون پر جانچ اور پاکستانی و مدنی صفحات پر متن پہچاننے کی درستی کا جائزہ باقی ہے۔ عربی متن تنزیل عثمانی v1.1 سے ہے۔</string>
     <string name="about_sources">عربی متن کی پہچان کے لیے Tesseract4Android اور tessdata_fast (Apache 2.0) استعمال ہوتے ہیں۔ مستند قرآنی متن تنزیل عثمانی v1.1 (CC BY 3.0)، https://tanzil.net سے ہے۔ ایپ اصل متن کی سالمیت جانچتی ہے۔ آزاد علمی جائزہ اور متن کی نمائش کی جانچ باقی ہیں۔ آڈیو اور الفاظ کے جانچے ہوئے اوقات الگ درآمد کیے جاتے ہیں۔</string>
     <string name="live_scan_full_image">کیمرے کی پوری تصویر استعمال کریں</string>
-    <string name="live_scan_full_image_selected">پوری تصویر منتخب ہے۔ تصویر اسکین کریں یا خودکار اسکین کا انتظار کریں۔</string>
+    <string name="live_scan_full_image_selected">پوری تصویر منتخب ہے۔ ابھی اسکین کرنے کے لیے تصویر اسکین کریں کا بٹن استعمال کریں۔</string>
     <string name="recitation_title">قرآن اسکین ریڈر · آف لائن تلاوت</string>
     <string name="recitation_intro">قرآنی متن تنزیل عثمانی v1.1 سے ہے۔ سننے کے لیے آڈیو پیک درآمد کریں۔ تلاوت چلانے سے پہلے اسکین کی دستی جانچ درکار ہے۔</string>
     <string name="recitation_surah">سورت نمبر</string>
@@ -139,4 +139,50 @@
     <string name="recitation_no_audio">مقامی آڈیو موجود نہیں۔ اجازت یافتہ اور جانچا ہوا MP3 پیک درآمد کریں۔</string>
     <string name="recitation_verifying_audio">مقامی ریکارڈنگ کی جانچ جاری ہے…</string>
     <string name="gallery_scan_error">تصویر اسکین نہیں ہو سکی۔ واپس جا کر دوسرا حصہ منتخب کریں یا چھوٹی تصویر آزمائیں۔</string>
+
+    <string name="scan_candidate_reference">%1$d:%2$d</string>
+    <string name="gallery_local_profile">متن شناسی کا پروفائل: %1$s۔ تصاویر اسی آلے پر پراسیس ہوتی ہیں۔</string>
+    <string name="live_frame_failed">کیمرے کا فریم پڑھا نہیں جا سکا۔ تصویر اسکین کر کے دیکھیں۔</string>
+    <string name="live_capture_failed">لی گئی تصویر استعمال نہیں ہو سکی۔ دوبارہ کوشش کریں۔</string>
+    <string name="live_capture_error">کیمرہ تصویر نہیں لے سکا۔ دوبارہ کوشش کریں۔</string>
+    <string name="live_ocr_failed">اس تصویر میں متن کی شناخت نہیں ہو سکی۔ دوبارہ کوشش کریں یا گیلری اسکین استعمال کریں۔</string>
+    <string name="audio_import_rejected">آڈیو پیک درآمد نہیں ہو سکا۔ زِپ فائل اور اس کی تفصیلات چیک کریں۔</string>
+    <string name="timing_import_rejected">الفاظ کے اوقات درآمد نہیں ہو سکے۔ دیکھیں کہ وہ منتخب آڈیو اور قرآنی متن سے مطابقت رکھتے ہیں۔</string>
+    <string name="audio_pack_list_failed">مقامی آڈیو پیک پڑھے نہیں جا سکے۔</string>
+    <string name="audio_pack_change_failed">آڈیو پیک کی تبدیلی لاگو نہیں ہو سکی۔</string>
+    <string name="audio_pack_label">%1$s · %2$s\n%3$s</string>
+    <string name="audio_pack_removed">آڈیو پیک ہٹا دیا گیا۔</string>
+    <string name="audio_pack_selected">آڈیو پیک منتخب ہو گیا۔</string>
+    <string name="recitation_no_recording_for_verse">%1$d:%2$d کے لیے اجازت یافتہ مقامی ریکارڈنگ نصب نہیں ہے۔</string>
+    <string name="recitation_no_matching_timings">%1$s: آیت کی آڈیو نصب ہے۔ اسی آڈیو اور متن سے مطابقت رکھنے والے جانچے گئے اوقات دستیاب نہیں ہیں۔</string>
+    <string name="recitation_load_failed">مقامی آیت یا اس کی آڈیو کا ڈیٹا نہیں کھل سکا۔</string>
+    <string name="recitation_preparing_follow">الفاظ نمایاں کرنے کی تیاری ہو رہی ہے۔ ایم پی تھری میں مقام کا تعین تخمینی ہے اور اوقات کا جائزہ ضروری ہے۔</string>
+    <string name="recitation_preparing_full">آیت کی مقامی آڈیو تیار ہو رہی ہے…</string>
+    <string name="recitation_word_selected">%2$d میں سے لفظ %1$d منتخب ہے۔ اوقات صارف کے فراہم کردہ ہیں اور سن کر جائزہ لینا ضروری ہے۔</string>
+    <string name="recitation_preparing_word">لفظ %1$d کی تیاری ہو رہی ہے۔ ایم پی تھری میں مقام کا تعین تخمینی ہے۔ وقت کا سن کر جائزہ لینا ضروری ہے۔</string>
+    <string name="recitation_recording_check_failed">مقامی ریکارڈنگ کی تصدیق نہیں ہو سکی۔ آیت دوبارہ منتخب کریں۔ مسئلہ برقرار رہے تو آڈیو پیک چیک کریں۔</string>
+    <string name="audio_position_failed">آڈیو میں موجودہ مقام معلوم نہیں ہو سکا۔</string>
+    <string name="audio_playback_failed">مقامی آڈیو نہیں چل سکی۔</string>
+    <string name="audio_preparation_failed">ریکارڈنگ تیار نہیں ہو سکی۔ آڈیو اور اس کے اوقات کی حد چیک کریں۔</string>
+    <string name="audio_focus_failed">آڈیو کسی اور سرگرمی میں استعمال ہو رہی ہے۔ اس اسکرین پر واپس آ کر دوبارہ کوشش کریں۔</string>
+    <string name="audio_pause_failed">مقامی آڈیو کو عارضی طور پر روکا نہیں جا سکا۔</string>
+    <plurals name="audio_imported">
+        <item quantity="one">%1$d آڈیو کلپ درآمد ہوا۔ ماخذ کا جائزہ باقی ہے۔ پہلے سے موجود لفظی اوقات شاید مطابقت نہ رکھیں۔</item>
+        <item quantity="other">%1$d آڈیو کلپ درآمد ہوئے۔ ماخذ کا جائزہ باقی ہے۔ پہلے سے موجود لفظی اوقات شاید مطابقت نہ رکھیں۔</item>
+    </plurals>
+    <plurals name="timing_imported">
+        <item quantity="one">%1$d اوقات کی فائل قبول ہوئی۔ مطابقت کا جائزہ باقی ہے۔</item>
+        <item quantity="other">%1$d اوقات کی فائلیں قبول ہوئیں۔ مطابقت کا جائزہ باقی ہے۔</item>
+    </plurals>
+    <plurals name="audio_clip_count">
+        <item quantity="one">%1$d آڈیو کلپ</item>
+        <item quantity="other">%1$d آڈیو کلپ</item>
+    </plurals>
+    <plurals name="recitation_timing_count">
+        <item quantity="one">%1$s: صارف کا دیا ہوا %2$d لفظی وقفہ لوڈ ہوا۔ سن کر جائزہ لینا ضروری ہے۔</item>
+        <item quantity="other">%1$s: صارف کے دیے ہوئے %2$d لفظی وقفے لوڈ ہوئے۔ سن کر جائزہ لینا ضروری ہے۔</item>
+    </plurals>
+    <string name="reference_number">%1$d</string>
+    <string name="status_with_details">%1$s\n%2$s</string>
+    <string name="audio_word_end_reached">آڈیو منتخب لفظ کے آخر تک پہنچ گئی۔ ایم پی تھری میں مقام کا تعین تخمینی ہے۔</string>
 </resources>

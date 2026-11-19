@@ -109,7 +109,7 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun screen(title: String, scrollable: Boolean = true, page: Destination = Destination.HOME, keepGallery: Boolean = false) {
+    private fun screen(title: String, page: Destination = Destination.HOME, keepGallery: Boolean = false) {
         destination = page
         scanToken++ // Navigation invalidates pending gallery results.
         releaseDesignPreview()
@@ -124,7 +124,7 @@ class MainActivity : Activity() {
             setPadding(22, 26, 22, 22)
         }
         drawer = DrawerLayout(this)
-        val content: View = if (scrollable) ScrollView(this).apply { isFillViewport = true; addView(root) } else root
+        val content = ScrollView(this).apply { isFillViewport = true; addView(root) }
         drawer.addView(content, DrawerLayout.LayoutParams(-1, -1))
         val side = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -174,6 +174,7 @@ class MainActivity : Activity() {
             this.text = text
             isAllCaps = false
             textSize = 16f
+            minHeight = (48 * resources.displayMetrics.density).toInt()
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
                 setColor(panel)
@@ -328,13 +329,13 @@ class MainActivity : Activity() {
     }
 
     private fun previewGalleryCrop(uri: Uri, bitmap: Bitmap, selection: CropBounds?) {
-        screen(getString(R.string.gallery_select_text), scrollable = false, keepGallery = true)
+        screen(getString(R.string.gallery_select_text), keepGallery = true)
         galleryUri = uri
         galleryBitmap = bitmap
         label(getString(R.string.gallery_crop_help), 15)
         val crop = GalleryCropView(this).apply { setImage(bitmap, selection) }
         galleryCrop = crop
-        root.addView(crop, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(crop, LinearLayout.LayoutParams(-1, (240 * resources.displayMetrics.density).toInt()))
         action(getString(R.string.gallery_scan_crop)) { startGalleryScan(uri, bitmap, crop.selectedBounds(), true) }
         action(getString(R.string.gallery_scan_full)) { startGalleryScan(uri, bitmap, crop.selectedBounds(), false) }
         action(getString(R.string.gallery_cancel)) { home() }
@@ -357,8 +358,8 @@ class MainActivity : Activity() {
         galleryBusy = true
         val token = scanToken
         val scanProfile = profile
-        label(getString(R.string.gallery_ocr_in_progress), 17, gold, true)
-        label("Profile: $scanProfile   •   All processing happens on your phone", 13)
+        label(getString(R.string.gallery_ocr_in_progress), 17, gold)
+        label(getString(R.string.gallery_local_profile, getString(profileLabel(scanProfile))), 13)
         val progress = ProgressBar(this)
         root.addView(progress)
         action(getString(R.string.nav_home)) { home() }
@@ -409,7 +410,8 @@ class MainActivity : Activity() {
                     else {
                         label(getString(R.string.gallery_possible_matches), 14, gold)
                         candidates.forEach { c ->
-                            label("${c.id.surah}:${c.id.ayah} — ${c.canonicalArabic}", 17, gold, true)
+                            label(getString(R.string.scan_candidate_reference, c.id.surah, c.id.ayah), 15, gold)
+                            label(c.canonicalArabic, 17, gold, true)
                             action(getString(R.string.scan_review_candidate, c.id.surah, c.id.ayah)) { recitation(c.id.surah, c.id.ayah, ocr.rawUnverifiedText) }
                         }
                     }
@@ -423,16 +425,17 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun profileLabel(value: OfflineArabicOcr.Profile): Int = when (value) {
+        OfflineArabicOcr.Profile.AUTO -> R.string.profile_auto
+        OfflineArabicOcr.Profile.INDO_PAK -> R.string.profile_indo_pak
+        OfflineArabicOcr.Profile.MADANI -> R.string.profile_madani
+    }
+
     private fun menu() { drawer.openDrawer(GravityCompat.START) }
     private fun settings() {
         screen(getString(R.string.nav_settings), page = Destination.SETTINGS)
         label(getString(R.string.settings_ocr_info), 14)
-        val profileLabel = when (profile) {
-            OfflineArabicOcr.Profile.AUTO -> R.string.profile_auto
-            OfflineArabicOcr.Profile.INDO_PAK -> R.string.profile_indo_pak
-            OfflineArabicOcr.Profile.MADANI -> R.string.profile_madani
-        }
-        action(getString(R.string.settings_profile, getString(profileLabel))) {
+        action(getString(R.string.settings_profile, getString(profileLabel(profile)))) {
             val options = OfflineArabicOcr.Profile.entries
             profile = options[(options.indexOf(profile) + 1) % options.size]
             getSharedPreferences("quran_reader_settings", MODE_PRIVATE).edit()

@@ -12,6 +12,7 @@ def run(*args):
     subprocess.run(list(args), check=True, timeout=120)
 
 run('python3', str(root / 'tools/test_source_policy.py'))
+run("python3", str(root / "tools/test_native_resources.py"))
 run('python3', str(root / 'tools/test_import_tanzil.py'))
 run('python3', str(root / 'tools/test_corpus_provenance.py'))
 run('python3', str(root / 'tools/verify_phase7.py'))

@@ -5,6 +5,9 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import androidx.core.os.ConfigurationCompat
+import androidx.core.text.BidiFormatter
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.widget.CheckBox
@@ -57,6 +60,7 @@ class RecitationActivity : ComponentActivity() {
     private lateinit var surahInput: EditText
     private lateinit var ayahInput: EditText
     private lateinit var player: OfflineAyahPlayer
+    private val bidi by lazy { BidiFormatter.getInstance(ConfigurationCompat.getLocales(resources.configuration)[0] ?: java.util.Locale.getDefault()) }
     private val preferences by lazy { getSharedPreferences("quran_reader_settings", MODE_PRIVATE) }
     private var mode = RecitationMode.FULL_AYAH
     private lateinit var modeLabel: TextView
@@ -97,8 +101,8 @@ class RecitationActivity : ComponentActivity() {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 importBusy = false
                 val notice = result.fold(
-                    onSuccess = { "Audio clips: ${it.entries.size}. Source not independently audited. Existing word timings may no longer apply." },
-                    onFailure = { "Audio import rejected: ${it.message ?: "unknown error"}" }
+                    onSuccess = { resources.getQuantityString(R.plurals.audio_imported, it.entries.size, it.entries.size) },
+                    onFailure = { getString(R.string.audio_import_rejected) }
                 )
                 loadSelection(notice = notice)
             }
@@ -116,8 +120,8 @@ class RecitationActivity : ComponentActivity() {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 importBusy = false
                 val notice = result.fold(
-                    onSuccess = { "Timing files accepted: ${it.entries.size}. Alignment accuracy is NOT independently authenticated." },
-                    onFailure = { "Timing import rejected: ${it.message ?: "unknown error"}" }
+                    onSuccess = { resources.getQuantityString(R.plurals.timing_imported, it.entries.size, it.entries.size) },
+                    onFailure = { getString(R.string.timing_import_rejected) }
                 )
                 loadSelection(notice = notice)
             }
@@ -132,7 +136,7 @@ class RecitationActivity : ComponentActivity() {
         player = OfflineAyahPlayer(
             applicationContext,
             onFinished = { status.text = getString(R.string.recitation_finished); displayWord(-1) },
-            onError = { status.text = it; clearPlaybackConfirmation() },
+            onError = { status.setText(it); clearPlaybackConfirmation() },
             onInterrupted = {
                 val wasConfirmed = playbackGate.canPlay
                 clearPlaybackConfirmation()
@@ -143,9 +147,8 @@ class RecitationActivity : ComponentActivity() {
         verseView.textSize = arabicSize.toFloat()
         val s = savedInstanceState?.getInt("surah") ?: intent.getIntExtra(EXTRA_SURAH, 1)
         val a = savedInstanceState?.getInt("ayah") ?: intent.getIntExtra(EXTRA_AYAH, 1)
-        if (QuranVerseCounts.valid(s, a)) {
-            surahInput.setText(s.toString()); ayahInput.setText(a.toString())
-        }
+        val initial = if (QuranVerseCounts.valid(s, a)) AudioVerseKey(s, a) else activeKey
+        showReference(initial.surah, initial.ayah)
         loadSelection(savedInstanceState?.getInt("chosen_word") ?: 0)
     }
 
@@ -177,18 +180,24 @@ class RecitationActivity : ComponentActivity() {
         }
         heading(getString(R.string.recitation_title), 22f, gold)
         heading(getString(R.string.recitation_intro), 15f)
-        val inputs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        surahInput = EditText(this).apply {
-            hint = getString(R.string.recitation_surah); setText("1"); inputType = 2; setTextColor(Color.WHITE)
-            setHintTextColor(Color.LTGRAY); gravity = Gravity.CENTER
+        fun numberInput(label: Int): EditText {
+            val field = EditText(this).apply {
+                id = View.generateViewId()
+                inputType = InputType.TYPE_CLASS_NUMBER
+                minHeight = dp(48)
+                setTextColor(Color.WHITE)
+                gravity = Gravity.START
+            }
+            column.addView(TextView(this).apply {
+                setText(label)
+                setTextColor(Color.WHITE)
+                labelFor = field.id
+            })
+            column.addView(field, LinearLayout.LayoutParams(-1, -2))
+            return field
         }
-        ayahInput = EditText(this).apply {
-            hint = getString(R.string.recitation_ayah); setText("1"); inputType = 2; setTextColor(Color.WHITE)
-            setHintTextColor(Color.LTGRAY); gravity = Gravity.CENTER
-        }
-        inputs.addView(surahInput, LinearLayout.LayoutParams(0, dp(58), 1f))
-        inputs.addView(ayahInput, LinearLayout.LayoutParams(0, dp(58), 1f))
-        column.addView(inputs)
+        surahInput = numberInput(R.string.recitation_surah)
+        ayahInput = numberInput(R.string.recitation_ayah)
         button(getString(R.string.recitation_choose_ayah)) { loadSelection() }
         button(getString(R.string.recitation_previous_ayah)) { moveAyah(-1) }
         button(getString(R.string.recitation_next_ayah)) { moveAyah(1) }
@@ -203,6 +212,7 @@ class RecitationActivity : ComponentActivity() {
         confirmation = CheckBox(this).apply {
             text = getString(R.string.confirm_verse)
             setTextColor(Color.WHITE)
+            minHeight = dp(48)
             setOnCheckedChangeListener { _, checked ->
                 if (checked) playbackGate.confirm() else revokePlayback()
             }
@@ -237,7 +247,9 @@ class RecitationActivity : ComponentActivity() {
             cancelPlayback()
             importTiming.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
         }
-        status = heading(getString(R.string.recitation_check_resources), 14f, gold)
+        status = heading(getString(R.string.recitation_check_resources), 14f, gold).apply {
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
         heading(getString(R.string.recitation_checks_notice), 13f)
         button(getString(R.string.nav_home)) { finish() }
         surahInput.doAfterTextChanged { invalidateEditedReference() }
@@ -265,20 +277,28 @@ class RecitationActivity : ComponentActivity() {
                     val labels = options.map { pack ->
                         val data = pack.manifest
                         if (data == null) getString(R.string.corrupt_audio_pack)
-                        else "${data.reciter} · ${data.entries.size} clips\n${data.source}" +
-                            if (pack.id == selected) " ✓" else ""
+                        else getString(R.string.audio_pack_label, bidi.unicodeWrap(data.reciter),
+                            resources.getQuantityString(R.plurals.audio_clip_count, data.entries.size, data.entries.size),
+                            bidi.unicodeWrap(data.source))
                     }.toTypedArray()
-                    android.app.AlertDialog.Builder(this)
+                    val dialog = android.app.AlertDialog.Builder(this)
                         .setTitle(if (remove) R.string.remove_audio_pack else R.string.choose_audio_pack)
-                        .setItems(labels) { _, index ->
-                            val pack = options[index]
-                            if (remove) android.app.AlertDialog.Builder(this)
+                        .setNegativeButton(android.R.string.cancel, null)
+                    if (remove) {
+                        dialog.setItems(labels) { _, index ->
+                            android.app.AlertDialog.Builder(this)
                                 .setMessage(getString(R.string.confirm_remove_pack, labels[index]))
                                 .setNegativeButton(android.R.string.cancel, null)
-                                .setPositiveButton(R.string.remove_pack) { _, _ -> changePack(pack.id, true) }.show()
-                            else changePack(pack.id, false)
-                        }.setNegativeButton(android.R.string.cancel, null).show()
-                }.onFailure { status.text = "Cannot read local packs: ${it.message}" }
+                                .setPositiveButton(R.string.remove_pack) { _, _ -> changePack(options[index].id, true) }.show()
+                        }
+                    } else {
+                        dialog.setSingleChoiceItems(labels, options.indexOfFirst { it.id == selected }) { choice, index ->
+                            choice.dismiss()
+                            changePack(options[index].id, false)
+                        }
+                    }
+                    dialog.show()
+                }.onFailure { status.setText(R.string.audio_pack_list_failed) }
             }
         }
     }
@@ -294,8 +314,9 @@ class RecitationActivity : ComponentActivity() {
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 importBusy = false
-                result.onSuccess { loadSelection() }
-                    .onFailure { status.text = "Audio pack change rejected: ${it.message}" }
+                result.onSuccess {
+                    loadSelection(notice = getString(if (remove) R.string.audio_pack_removed else R.string.audio_pack_selected))
+                }.onFailure { status.setText(R.string.audio_pack_change_failed) }
             }
         }
     }
@@ -303,9 +324,13 @@ class RecitationActivity : ComponentActivity() {
     private fun moveAyah(direction: Int) {
         val next = VerseNavigation.adjacent(VerseId(activeKey.surah, activeKey.ayah), direction)
         if (next == null) { status.text = getString(R.string.recitation_boundary); return }
-        surahInput.setText(next.surah.toString())
-        ayahInput.setText(next.ayah.toString())
+        showReference(next.surah, next.ayah)
         loadSelection() // Selection never starts playback.
+    }
+
+    private fun showReference(surah: Int, ayah: Int) {
+        surahInput.setText(getString(R.string.reference_number, surah))
+        ayahInput.setText(getString(R.string.reference_number, ayah))
     }
 
     private fun displayWord(index: Int) {
@@ -335,7 +360,7 @@ class RecitationActivity : ComponentActivity() {
         val s = surahInput.text.toString().toIntOrNull()
         val a = ayahInput.text.toString().toIntOrNull()
         if (s == null || a == null || !QuranVerseCounts.valid(s, a)) {
-            verseView.text = "Invalid Surah / Ayah"
+            verseView.text = ""
             status.text = getString(R.string.recitation_invalid_reference)
             return
         }
@@ -368,13 +393,15 @@ class RecitationActivity : ComponentActivity() {
                     verseReference.text = getString(R.string.canonical_ayah_reference, key.surah, key.ayah)
                     displayWord(if (mode == RecitationMode.SELECTED_WORD && windows != null) chosenWord else -1)
                     updateScanComparison(key)
-                    status.text = (notice?.let { "$it\n" } ?: "") + when {
-                        selection == null -> "No licensed local ayah recording installed for $s:$a."
-                        windows == null -> "${reciter}: ayah audio exists, but no validated word timings for this exact audio/text."
-                        else -> "${reciter}: ${windows.size} user-supplied timing windows loaded; listening review is still required."
+                    val details = when {
+                        selection == null -> getString(R.string.recitation_no_recording_for_verse, s, a)
+                        windows == null -> getString(R.string.recitation_no_matching_timings, bidi.unicodeWrap(reciter.orEmpty()))
+                        else -> resources.getQuantityString(R.plurals.recitation_timing_count,
+                            windows.size, bidi.unicodeWrap(reciter.orEmpty()), windows.size)
                     }
+                    status.text = if (notice == null) details else getString(R.string.status_with_details, notice, details)
                 }.onFailure {
-                    status.text = "Local verse loading failed safely: ${it.message}"
+                    status.setText(R.string.recitation_load_failed)
                 }
             }
         }
@@ -413,11 +440,11 @@ class RecitationActivity : ComponentActivity() {
     private fun playFull() {
         val followWords = mode == RecitationMode.FOLLOW_WORDS
         if (followWords && timing == null) {
-            status.text = "Word highlighting unavailable: import timings for the SAME audio + canonical text."
+            status.setText(R.string.recitation_no_exact_timings)
             return
         }
-        val notice = if (followWords) "Following audio timing; approximate MP3 seek and unverified timing quality."
-            else "Preparing local full ayah audio…"
+        val notice = getString(if (followWords) R.string.recitation_preparing_follow
+            else R.string.recitation_preparing_full)
         requestPlayback(notice, requiredDurationMs = if (followWords) timing?.lastOrNull()?.endMs ?: 0 else 0)
     }
 
@@ -426,7 +453,7 @@ class RecitationActivity : ComponentActivity() {
         cancelPlayback()
         chosenWord = index.coerceIn(0, words.lastIndex)
         displayWord(chosenWord)
-        status.text = "Selected word ${chosenWord + 1}/${words.size} — timings are user-supplied and require listening review."
+        status.text = getString(R.string.recitation_word_selected, chosenWord + 1, words.size)
     }
 
     private fun playWord() {
@@ -437,7 +464,7 @@ class RecitationActivity : ComponentActivity() {
             return
         }
         requestPlayback(
-            "Preparing word ${chosenWord + 1}; MP3 seeking is approximate. Timing requires listening review.",
+            getString(R.string.recitation_preparing_word, chosenWord + 1),
             window.startMs, window.endMs, windows.last().endMs
         )
     }
@@ -494,7 +521,7 @@ class RecitationActivity : ComponentActivity() {
                     if (!playbackGate.accepts(request) || isFinishing || isDestroyed || importBusy) return@runOnUiThread
                     if (recording == null) {
                         clearPlaybackConfirmation()
-                        status.text = verified.exceptionOrNull()?.message ?: "Local audio verification failed"
+                        status.setText(R.string.recitation_recording_check_failed)
                         return@runOnUiThread
                     }
                     highlightMode = requestedMode.takeUnless { it == RecitationMode.FULL_AYAH }

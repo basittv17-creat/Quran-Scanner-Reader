@@ -16,9 +16,9 @@
     <string name="confirm_remove_pack">Remove this local audio pack?\n%1$s</string>
     <string name="remove_pack">Remove</string>
     <string name="import_busy">Import and validation are in progress. Recitation and ayah selection resume after import.</string>
-    <string name="live_crop_hint">Camera preview. Tap to focus or drag across the page to select a scan area.</string>
+    <string name="live_crop_hint">Camera preview. Activate to focus at the center. Drag to crop or use the full camera image button.</string>
     <string name="live_crop_reset">Reset scan area</string>
-    <string name="live_crop_updated">Scan area updated. Scan a photo or wait for automatic scanning.</string>
+    <string name="live_crop_updated">Scan area updated. Use Scan photo to scan it now.</string>
     <string name="scan_quality_low_light">The selected area looks dark. Add light and try again.</string>
     <string name="scan_quality_low_detail">The selected area shows little detail. Hold the camera steady, refocus, or select a sharper photo.</string>
     <string name="scan_processing_summary">OCR completed in %2$d ms · %1$d variants checked</string>
@@ -65,7 +65,7 @@
     <string name="help_validation">Testing on physical Android devices and accuracy evaluation on Pakistani and Madani pages are pending. The Arabic text uses Tanzil Uthmani v1.1.</string>
     <string name="about_sources">Arabic OCR uses Tesseract4Android and tessdata_fast (Apache 2.0). The canonical Quran text is Tanzil Uthmani v1.1 (CC BY 3.0), https://tanzil.net. The app includes the original text with integrity checks. Independent scholarly review and review of rendering are pending. Audio and reviewed word timings are imported separately.</string>
     <string name="live_scan_full_image">Use full camera image</string>
-    <string name="live_scan_full_image_selected">Full image selected. Scan a photo or wait for automatic scanning.</string>
+    <string name="live_scan_full_image_selected">Full image selected. Use Scan photo to scan it now.</string>
     <string name="recitation_title">Quran Scan Reader · Offline recitation</string>
     <string name="recitation_intro">Quran text uses Tanzil Uthmani v1.1. Import an audio pack to listen. Scans always require manual review before playback.</string>
     <string name="recitation_surah">Surah number</string>
@@ -137,4 +137,50 @@
     <string name="recitation_no_audio">No local audio file: import a licensed, checked MP3 pack.</string>
     <string name="recitation_verifying_audio">Checking the local recording…</string>
     <string name="gallery_scan_error">Unable to scan the image. Go back to try a different selection or choose a smaller image.</string>
+
+    <string name="scan_candidate_reference">%1$d:%2$d</string>
+    <string name="gallery_local_profile">OCR profile: %1$s. Images are processed on this device.</string>
+    <string name="live_frame_failed">Could not read the camera frame. Try Scan photo.</string>
+    <string name="live_capture_failed">Could not use the captured image. Try again.</string>
+    <string name="live_capture_error">The camera could not take a photo. Try again.</string>
+    <string name="live_ocr_failed">Could not recognize text in this image. Try again or use Gallery Scan.</string>
+    <string name="audio_import_rejected">Could not import the audio pack. Check the ZIP and its manifest.</string>
+    <string name="timing_import_rejected">Could not import word timings. Check that they match the selected audio and Quran text.</string>
+    <string name="audio_pack_list_failed">Could not read the local audio packs.</string>
+    <string name="audio_pack_change_failed">Could not apply the audio pack change.</string>
+    <string name="audio_pack_label">%1$s · %2$s\n%3$s</string>
+    <string name="audio_pack_removed">Audio pack removed.</string>
+    <string name="audio_pack_selected">Audio pack selected.</string>
+    <string name="recitation_no_recording_for_verse">No licensed local recording is installed for %1$d:%2$d.</string>
+    <string name="recitation_no_matching_timings">%1$s: Ayah audio is installed. Validated timings for this exact audio and text are unavailable.</string>
+    <string name="recitation_load_failed">Could not load the local verse or its audio data.</string>
+    <string name="recitation_preparing_follow">Preparing word highlighting. MP3 seeking is approximate and timing quality requires review.</string>
+    <string name="recitation_preparing_full">Preparing local ayah audio…</string>
+    <string name="recitation_word_selected">Selected word %1$d of %2$d. Timings are user-supplied and require listening review.</string>
+    <string name="recitation_preparing_word">Preparing word %1$d. MP3 seeking is approximate. Timing requires listening review.</string>
+    <string name="recitation_recording_check_failed">Could not verify the local recording. Select the ayah again, then check the audio pack if the problem continues.</string>
+    <string name="audio_position_failed">Could not read the playback position.</string>
+    <string name="audio_playback_failed">Could not play local audio.</string>
+    <string name="audio_preparation_failed">Could not prepare the recording. Check the audio and its timing range.</string>
+    <string name="audio_focus_failed">Audio is busy. Return to this screen and try again.</string>
+    <string name="audio_pause_failed">Could not pause local audio.</string>
+    <plurals name="audio_imported">
+        <item quantity="one">Imported %1$d clip. Source review is pending. Existing word timings may no longer apply.</item>
+        <item quantity="other">Imported %1$d clips. Source review is pending. Existing word timings may no longer apply.</item>
+    </plurals>
+    <plurals name="timing_imported">
+        <item quantity="one">Accepted %1$d timing file. Alignment review is pending.</item>
+        <item quantity="other">Accepted %1$d timing files. Alignment review is pending.</item>
+    </plurals>
+    <plurals name="audio_clip_count">
+        <item quantity="one">%1$d clip</item>
+        <item quantity="other">%1$d clips</item>
+    </plurals>
+    <plurals name="recitation_timing_count">
+        <item quantity="one">%1$s: %2$d user-supplied timing window loaded. Listening review is required.</item>
+        <item quantity="other">%1$s: %2$d user-supplied timing windows loaded. Listening review is required.</item>
+    </plurals>
+    <string name="reference_number">%1$d</string>
+    <string name="status_with_details">%1$s\n%2$s</string>
+    <string name="audio_word_end_reached">Playback reached the end of the selected word. MP3 seeking is approximate.</string>
 </resources>

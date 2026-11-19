@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import org.quranscan.reader.R
 import java.io.FileDescriptor
 
 /** Foreground, local-only playback. MP3 segment seeking remains approximate.
@@ -21,7 +22,7 @@ import java.io.FileDescriptor
 class OfflineAyahPlayer(
     context: Context,
     private val onFinished: () -> Unit,
-    private val onError: (String) -> Unit,
+    private val onError: (Int) -> Unit,
     private val onInterrupted: () -> Unit
 ) {
     private val app = context.applicationContext
@@ -58,7 +59,7 @@ class OfflineAyahPlayer(
                     onFinished()
                 } else handler.postDelayed(this, 30)
             } catch (e: IllegalStateException) {
-                fail("Local audio position unavailable")
+                fail(R.string.audio_position_failed)
             }
         }
     }
@@ -69,7 +70,7 @@ class OfflineAyahPlayer(
         try {
             val range = PlaybackRange(startMs, endMs, requiredDurationMs)
             if (!requestFocus()) {
-                fail("Audio focus unavailable. Return to this screen and try again.")
+                fail(R.string.audio_focus_failed)
                 return
             }
             val mp = MediaPlayer()
@@ -82,7 +83,7 @@ class OfflineAyahPlayer(
                 if (player === mp) { stop(); onFinished() }
             }
             mp.setOnErrorListener { _, _, _ ->
-                if (player === mp) fail("Local audio playback failed")
+                if (player === mp) fail(R.string.audio_playback_failed)
                 true
             }
             mp.setOnSeekCompleteListener {
@@ -97,26 +98,26 @@ class OfflineAyahPlayer(
                         seeking = true
                         mp.seekTo(startMs)
                     } else startIfReady()
-                } catch (e: Exception) { fail(e.message ?: "Invalid local recording") }
+                } catch (e: Exception) { fail(R.string.audio_preparation_failed) }
             }
             mp.prepareAsync()
-        } catch (e: Exception) { fail("Unable to play local audio: ${e.message ?: "unknown error"}") }
+        } catch (e: Exception) { fail(R.string.audio_playback_failed) }
     }
 
     private fun startIfReady() {
         val mp = player ?: return
         if (!prepared || seeking || !playWhenReady) return
         try {
-            if (!requestFocus()) { fail("Audio focus unavailable. Return to this screen and try again."); return }
+            if (!requestFocus()) { fail(R.string.audio_focus_failed); return }
             val range = checkNotNull(playbackRange)
             if (range.isSegment && range.hasReachedEnd(mp.currentPosition)) {
-                fail("The playback position reached the end of the selected word. MP3 seeking is approximate.")
+                fail(R.string.audio_word_end_reached)
                 return
             }
             mp.start()
             handler.removeCallbacks(checkpoint)
             if (range.isSegment) handler.post(checkpoint)
-        } catch (e: Exception) { fail("Unable to resume local audio: ${e.message ?: "unknown error"}") }
+        } catch (e: Exception) { fail(R.string.audio_playback_failed) }
     }
 
     private fun requestFocus(): Boolean {
@@ -158,7 +159,7 @@ class OfflineAyahPlayer(
         hasFocus = false
     }
 
-    private fun fail(message: String) { stop(); onError(message) }
+    private fun fail(message: Int) { stop(); onError(message) }
     fun currentPositionMs(): Int? = if (prepared && !seeking) runCatching { player?.currentPosition }.getOrNull() else null
     fun isPlaying(): Boolean = prepared && !seeking && runCatching { player?.isPlaying == true }.getOrDefault(false)
     fun pause() {
@@ -172,7 +173,7 @@ class OfflineAyahPlayer(
             if (prepared) player?.takeIf { it.isPlaying }?.pause()
             abandonFocus()
         } catch (e: IllegalStateException) {
-            fail("Unable to pause local audio")
+            fail(R.string.audio_pause_failed)
         }
     }
     fun resume() { if (!released && player != null) { playWhenReady = true; startIfReady() } }
