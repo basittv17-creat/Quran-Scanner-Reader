@@ -27,8 +27,9 @@ object WordTimingFormat {
     fun verseDigest(canonicalArabic: String): String = sha256(canonicalArabic.toByteArray(Charsets.UTF_8))
 
     /** Never reformat, strip harakat, or substitute OCR for the canonical display text. */
-    fun words(canonicalArabic: String): List<String> = canonicalArabic
-        .split(Regex("\\s+")).filter { it.isNotEmpty() }
+    private val wordPattern = Regex("\\S+")
+    internal fun wordRegions(canonicalArabic: String): Sequence<MatchResult> = wordPattern.findAll(canonicalArabic)
+    fun words(canonicalArabic: String): List<String> = wordRegions(canonicalArabic).map { it.value }.toList()
 
     fun parseManifest(text: String): WordTimingManifest {
         val lines = text.lineSequence().map { it.trimEnd('\r') }.filter { it.isNotEmpty() }.toList()
@@ -88,6 +89,11 @@ object WordTimingFormat {
             previousEnd = to
             TimedWord(n, from, to)
         }
+    }
+
+    internal fun highlightIndex(words: List<TimedWord>, positionMs: Int?, selectedIndex: Int?): Int {
+        val index = positionMs?.let { activeIndex(words, it) } ?: -1
+        return if (selectedIndex == null || selectedIndex == index) index else -1
     }
 
     /** -1 in silence, -1 for invalid or absent timing. Boundaries: [start,end). */

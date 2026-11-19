@@ -15,10 +15,13 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.widget.doAfterTextChanged
 import org.quranscan.reader.audio.AudioVerseKey
 import org.quranscan.reader.audio.OfflineAudioPackStore
 import org.quranscan.reader.audio.OfflineAyahPlayer
 import org.quranscan.reader.audio.OfflineWordTimingStore
+import org.quranscan.reader.audio.RecitationMode
+import org.quranscan.reader.audio.RecitationPlaybackGate
 import org.quranscan.reader.audio.TimedWord
 import org.quranscan.reader.audio.VerifiedRecording
 import org.quranscan.reader.audio.WordHighlightText
@@ -55,27 +58,28 @@ class RecitationActivity : ComponentActivity() {
     private lateinit var ayahInput: EditText
     private lateinit var player: OfflineAyahPlayer
     private val preferences by lazy { getSharedPreferences("quran_reader_settings", MODE_PRIVATE) }
-    private enum class Mode { FULL_AYAH, FOLLOW_WORDS, SELECTED_WORD }
-    private var mode = Mode.FULL_AYAH
+    private var mode = RecitationMode.FULL_AYAH
     private lateinit var modeLabel: TextView
     private lateinit var confirmation: CheckBox
     private var selectionToken = 0
-    private var playbackRequest = 0
-    private var audioSha256: String? = null
+    private val playbackGate = RecitationPlaybackGate()
+    private var recordingSelection: Pair<String, String>? = null
     private var activeKey = AudioVerseKey(1, 1)
     private var canonicalArabic: String? = null
     private var timing: List<TimedWord>? = null
     private var importBusy = false
     private var chosenWord = 0
-    private var followWords = false
+    private var highlightMode: RecitationMode? = null
     private var lastHighlighted = -2
 
     private val highlightLoop = object : Runnable {
         override fun run() {
-            if (followWords && player.isPlaying()) {
-                val ms = player.currentPositionMs()
-                val word = if (ms == null) -1 else WordTimingFormat.activeIndex(timing.orEmpty(), ms)
-                if (word >= 0) chosenWord = word
+            if (highlightMode != null && player.isPlaying()) {
+                val word = WordTimingFormat.highlightIndex(
+                    timing.orEmpty(), player.currentPositionMs(),
+                    selectedIndex = chosenWord.takeIf { highlightMode == RecitationMode.SELECTED_WORD }
+                )
+                if (word >= 0 && highlightMode == RecitationMode.FOLLOW_WORDS) chosenWord = word
                 if (word != lastHighlighted) displayWord(word)
             }
             timer.postDelayed(this, 80)
@@ -123,13 +127,17 @@ class RecitationActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val arabicSize = preferences.getInt("arabic_size", 25).coerceIn(21, 37)
-        mode = runCatching { Mode.valueOf(preferences.getString("recitation_mode", Mode.FULL_AYAH.name)!!) }
-            .getOrDefault(Mode.FULL_AYAH)
+        mode = RecitationMode.restore(preferences.getString("recitation_mode", null))
         window.decorView.keepScreenOn = preferences.getBoolean("keep_screen_on", false)
         player = OfflineAyahPlayer(
             applicationContext,
             onFinished = { status.text = getString(R.string.recitation_finished); displayWord(-1) },
-            onError = { status.text = it; displayWord(-1) }
+            onError = { status.text = it; clearPlaybackConfirmation() },
+            onInterrupted = {
+                val wasConfirmed = playbackGate.canPlay
+                clearPlaybackConfirmation()
+                if (wasConfirmed) status.setText(R.string.confirm_before_play)
+            }
         )
         buildScreen()
         verseView.textSize = arabicSize.toFloat()
@@ -196,25 +204,29 @@ class RecitationActivity : ComponentActivity() {
             text = getString(R.string.confirm_verse)
             setTextColor(Color.WHITE)
             setOnCheckedChangeListener { _, checked ->
-                if (!checked) { cancelPlayback(); displayWord(-1) }
+                if (checked) playbackGate.confirm() else revokePlayback()
             }
         }
         column.addView(confirmation)
         modeLabel = heading("", 16f, gold)
         showMode()
         button(getString(R.string.change_recitation_mode)) {
-            setMode(Mode.entries[(mode.ordinal + 1) % Mode.entries.size])
+            setMode(RecitationMode.entries[(mode.ordinal + 1) % RecitationMode.entries.size])
         }
         button(getString(R.string.play_selected_mode)) { playPreferred() }
         button(getString(R.string.replay_selected_mode)) { playPreferred() }
-        button(getString(R.string.recitation_play_ayah)) { setMode(Mode.FULL_AYAH); playPreferred() }
-        button(getString(R.string.recitation_play_follow)) { setMode(Mode.FOLLOW_WORDS); playPreferred() }
+        button(getString(R.string.recitation_play_ayah)) { setMode(RecitationMode.FULL_AYAH); playPreferred() }
+        button(getString(R.string.recitation_play_follow)) { setMode(RecitationMode.FOLLOW_WORDS); playPreferred() }
         button(getString(R.string.recitation_previous_word)) { selectWord(chosenWord - 1) }
         button(getString(R.string.recitation_next_word)) { selectWord(chosenWord + 1) }
-        button(getString(R.string.recitation_play_word)) { setMode(Mode.SELECTED_WORD); playPreferred() }
-        button(getString(R.string.recitation_pause)) { playbackRequest++; player.pause() }
-        button(getString(R.string.recitation_resume)) { if (confirmation.isChecked) player.resume() else status.setText(R.string.confirm_before_play) }
-        button(getString(R.string.recitation_stop)) { cancelPlayback(); displayWord(-1) }
+        button(getString(R.string.recitation_play_word)) { setMode(RecitationMode.SELECTED_WORD); playPreferred() }
+        button(getString(R.string.recitation_pause)) {
+            playbackGate.cancelRequest()
+            player.pause()
+            displayWord(-1)
+        }
+        button(getString(R.string.recitation_resume)) { if (playbackGate.canPlay) player.resume() else status.setText(R.string.confirm_before_play) }
+        button(getString(R.string.recitation_stop)) { cancelPlayback() }
         button(getString(R.string.recitation_import_audio)) {
             cancelPlayback()
             importAudio.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
@@ -228,11 +240,19 @@ class RecitationActivity : ComponentActivity() {
         status = heading(getString(R.string.recitation_check_resources), 14f, gold)
         heading(getString(R.string.recitation_checks_notice), 13f)
         button(getString(R.string.nav_home)) { finish() }
+        surahInput.doAfterTextChanged { invalidateEditedReference() }
+        ayahInput.doAfterTextChanged { invalidateEditedReference() }
+    }
+
+    private fun invalidateEditedReference() {
+        selectionToken++
+        confirmation.isEnabled = false
+        clearPlaybackConfirmation()
+        updateScanComparison(null)
     }
 
     private fun managePacks(remove: Boolean) {
-        cancelPlayback()
-        confirmation.isChecked = false
+        clearPlaybackConfirmation()
         importBusy = true
         executor.execute {
             val result = runCatching { audioStore.installedPacks() to audioStore.selectedPackId() }
@@ -264,8 +284,7 @@ class RecitationActivity : ComponentActivity() {
     }
 
     private fun changePack(id: String, remove: Boolean) {
-        cancelPlayback()
-        confirmation.isChecked = false
+        clearPlaybackConfirmation()
         selectionToken++
         importBusy = true
         executor.execute {
@@ -291,21 +310,27 @@ class RecitationActivity : ComponentActivity() {
 
     private fun displayWord(index: Int) {
         val fullText = canonicalArabic ?: return
+        if (lastHighlighted == index) return
         lastHighlighted = index
         verseView.text = WordHighlightText.decorate(fullText, index)
     }
 
+    private data class LoadedVerse(
+        val arabic: String,
+        val reciter: String?,
+        val recording: Pair<String, String>?,
+        val windows: List<TimedWord>?
+    )
+
     private fun loadSelection(restoredWord: Int = 0, notice: String? = null) {
-        cancelPlayback()
-        confirmation.isChecked = false
+        clearPlaybackConfirmation()
         confirmation.isEnabled = false
-        followWords = false
         lastHighlighted = -2
         canonicalArabic = null
         timing = null
         verseReference.text = ""
         updateScanComparison(null)
-        audioSha256 = null
+        recordingSelection = null
         val token = ++selectionToken
         val s = surahInput.text.toString().toIntOrNull()
         val a = ayahInput.text.toString().toIntOrNull()
@@ -323,24 +348,29 @@ class RecitationActivity : ComponentActivity() {
             val loaded = runCatching {
                 check(corpus.isComplete()) { "Verified complete Quran corpus missing" }
                 val verse = corpus.find(VerseId(s, a)) ?: error("Canonical verse missing")
+                val packId = runCatching { audioStore.selectedPackId() }.getOrNull()
                 val audio = audioStore.installedManifest()
-                Triple(verse, audio, timingStore.timeline(key, verse, audio))
+                val windows = timingStore.timeline(key, verse, audio)
+                val selection = audio?.entries?.get(key)?.sha256?.let { sha ->
+                    if (packId != null && audioStore.selectedPackId() == packId) packId to sha else null
+                }
+                LoadedVerse(verse, audio?.reciter, selection, windows.takeIf { selection != null })
             }
             runOnUiThread {
                 if (token != selectionToken || isFinishing || isDestroyed) return@runOnUiThread
-                loaded.onSuccess { (verse, audio, windows) ->
+                loaded.onSuccess { (verse, reciter, selection, windows) ->
                     canonicalArabic = verse
                     confirmation.isEnabled = true
                     timing = windows
-                    audioSha256 = audio?.entries?.get(key)?.sha256
+                    recordingSelection = selection
                     chosenWord = restoredWord.coerceIn(0, (windows?.size ?: 1) - 1)
                     verseReference.text = getString(R.string.canonical_ayah_reference, key.surah, key.ayah)
-                    verseView.text = verse
+                    displayWord(if (mode == RecitationMode.SELECTED_WORD && windows != null) chosenWord else -1)
                     updateScanComparison(key)
                     status.text = (notice?.let { "$it\n" } ?: "") + when {
-                        audio?.entries?.get(key) == null -> "No licensed local ayah recording installed for $s:$a."
-                        windows == null -> "${audio?.reciter}: ayah audio exists, but no validated word timings for this exact audio/text."
-                        else -> "${audio?.reciter}: ${windows.size} user-supplied timing windows loaded; listening review is still required."
+                        selection == null -> "No licensed local ayah recording installed for $s:$a."
+                        windows == null -> "${reciter}: ayah audio exists, but no validated word timings for this exact audio/text."
+                        else -> "${reciter}: ${windows.size} user-supplied timing windows loaded; listening review is still required."
                     }
                 }.onFailure {
                     status.text = "Local verse loading failed safely: ${it.message}"
@@ -360,14 +390,14 @@ class RecitationActivity : ComponentActivity() {
 
     private fun showMode() {
         val label = when (mode) {
-            Mode.FULL_AYAH -> R.string.mode_full_ayah
-            Mode.FOLLOW_WORDS -> R.string.mode_follow_words
-            Mode.SELECTED_WORD -> R.string.mode_selected_word
+            RecitationMode.FULL_AYAH -> R.string.mode_full_ayah
+            RecitationMode.FOLLOW_WORDS -> R.string.mode_follow_words
+            RecitationMode.SELECTED_WORD -> R.string.mode_selected_word
         }
         modeLabel.text = getString(R.string.current_recitation_mode, getString(label))
     }
 
-    private fun setMode(value: Mode) {
+    private fun setMode(value: RecitationMode) {
         cancelPlayback()
         mode = value
         preferences.edit().putString("recitation_mode", mode.name).apply()
@@ -375,12 +405,12 @@ class RecitationActivity : ComponentActivity() {
     }
 
     private fun playPreferred() {
-        followWords = mode == Mode.FOLLOW_WORDS
-        if (mode == Mode.SELECTED_WORD) playWord()
-        else { displayWord(-1); playFull() }
+        if (!playbackGate.canPlay) { status.setText(R.string.confirm_before_play); return }
+        if (mode == RecitationMode.SELECTED_WORD) playWord() else playFull()
     }
 
     private fun playFull() {
+        val followWords = mode == RecitationMode.FOLLOW_WORDS
         if (followWords && timing == null) {
             status.text = "Word highlighting unavailable: import timings for the SAME audio + canonical text."
             return
@@ -399,48 +429,74 @@ class RecitationActivity : ComponentActivity() {
     }
 
     private fun playWord() {
-        val window = timing?.getOrNull(chosenWord)
-        if (window == null) {
-            status.text = getString(R.string.recitation_no_exact_timings)
+        val windows = timing
+        val window = windows?.getOrNull(chosenWord)
+        if (windows == null || window == null) {
+            status.setText(R.string.recitation_no_exact_timings)
             return
         }
-        followWords = false
-        displayWord(chosenWord)
-        requestPlayback("Preparing word ${chosenWord + 1}; MP3 seek may be approximate.", window.startMs, window.endMs)
+        requestPlayback(
+            "Preparing word ${chosenWord + 1}; MP3 seek may be approximate.",
+            window.startMs, window.endMs, windows.last().endMs
+        )
     }
 
     private fun cancelPlayback() {
-        playbackRequest++
+        playbackGate.cancelRequest()
+        highlightMode = null
         player.stop()
+        displayWord(-1)
+    }
+
+    private fun clearPlaybackConfirmation() {
+        if (confirmation.isChecked) confirmation.isChecked = false
+        else revokePlayback()
+    }
+
+    private fun revokePlayback() {
+        playbackGate.revokeConfirmation()
+        cancelPlayback()
     }
 
     private fun requestPlayback(notice: String, startMs: Int = 0, endMs: Int? = null, requiredDurationMs: Int = 0) {
-        if (!confirmation.isChecked) { status.setText(R.string.confirm_before_play); return }
-        if (canonicalArabic == null) { status.text = "Playback blocked: verified corpus is incomplete."; return }
-        val expected = audioSha256
-        if (expected == null) {
-            status.text = getString(R.string.recitation_no_audio)
+        val selection = recordingSelection
+        if (selection == null) {
+            status.setText(R.string.recitation_no_audio)
             return
         }
         cancelPlayback()
-        val request = playbackRequest
-        val token = selectionToken
+        val request = playbackGate.beginRequest() ?: return
+        val (packId, expectedSha) = selection
         val key = activeKey
-        status.text = getString(R.string.recitation_verifying_audio)
+        val requestedMode = mode
+        status.setText(R.string.recitation_verifying_audio)
         executor.execute {
             val verified = runCatching {
+                check(audioStore.selectedPackId() == packId &&
+                    audioStore.installedManifest()?.entries?.get(key)?.sha256 == expectedSha) {
+                    "The local recording selection changed. Choose the verse again."
+                }
                 val file = audioStore.audioFile(key) ?: error("Local audio file is missing")
-                VerifiedRecording.open(file, expected)
+                check(audioStore.selectedPackId() == packId) { "The local audio pack changed. Choose the verse again." }
+                val input = VerifiedRecording.open(file, expectedSha)
+                try {
+                    check(audioStore.selectedPackId() == packId) { "The local audio pack changed. Choose the verse again." }
+                    input
+                } catch (error: Exception) {
+                    input.close()
+                    throw error
+                }
             }
             runOnUiThread {
                 val recording = verified.getOrNull()
                 try {
-                    if (request != playbackRequest || token != selectionToken || isFinishing || isDestroyed ||
-                        !confirmation.isChecked || importBusy) return@runOnUiThread
+                    if (!playbackGate.accepts(request) || isFinishing || isDestroyed || importBusy) return@runOnUiThread
                     if (recording == null) {
+                        clearPlaybackConfirmation()
                         status.text = verified.exceptionOrNull()?.message ?: "Local audio verification failed"
                         return@runOnUiThread
                     }
+                    highlightMode = requestedMode.takeUnless { it == RecitationMode.FULL_AYAH }
                     status.text = notice
                     player.play(recording.fd, startMs, endMs, requiredDurationMs)
                 } finally {
@@ -452,16 +508,17 @@ class RecitationActivity : ComponentActivity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()
-    override fun onStart() {
-        super.onStart()
+    override fun onResume() {
+        super.onResume()
+        playbackGate.enterForeground()
         timer.post(highlightLoop)
     }
 
-    override fun onStop() {
+    override fun onPause() {
         timer.removeCallbacks(highlightLoop)
-        playbackRequest++
-        player.pause()
-        super.onStop()
+        playbackGate.leaveForeground()
+        clearPlaybackConfirmation()
+        super.onPause()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

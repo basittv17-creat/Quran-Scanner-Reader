@@ -22,8 +22,13 @@ for dep in ('camera-camera2', 'camera-lifecycle', 'camera-view', 'activity:1.9.3
 live = (src / 'LiveScanActivity.kt').read_text()
 for required in ('STRATEGY_KEEP_ONLY_LATEST','ImageCapture.OnImageCapturedCallback',
                  'RequestPermission','ProcessCameraProvider','image.close()',
-                 'OfflineArabicOcr','UNVERIFIED OCR', 'PreviewView'):
+                 'OfflineArabicOcr','getString(R.string.gallery_ocr_unverified)', 'PreviewView'):
     assert required in live, required
+resources = root / 'app/src/main/res'
+for directory in ('values', 'values-ur'):
+    strings = ET.parse(resources / directory / 'strings.xml').getroot()
+    warning = strings.find("./string[@name='gallery_ocr_unverified']")
+    assert warning is not None and (warning.text or '').strip(), directory
 assert 'https://' not in live and 'http://' not in live
 main = (src / 'MainActivity.kt').read_text()
 assert 'LiveScanActivity::class.java' in main

@@ -16,12 +16,13 @@ import java.io.FileDescriptor
 
 /** Foreground, local-only playback. MP3 segment seeking remains approximate.
  * All controls and callbacks run on the main thread; preparation is asynchronous.
- * Focus loss and headphone disconnect pause; only an explicit Resume restarts audio.
+ * Focus loss and headphone disconnect revoke the activity’s playback confirmation.
  */
 class OfflineAyahPlayer(
     context: Context,
     private val onFinished: () -> Unit,
-    private val onError: (String) -> Unit
+    private val onError: (String) -> Unit,
+    private val onInterrupted: () -> Unit
 ) {
     private val app = context.applicationContext
     private val audioManager = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -36,16 +37,10 @@ class OfflineAyahPlayer(
     private var hasFocus = false
     private var released = false
     private val handler = Handler(Looper.getMainLooper())
-    private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
-        if (change == AudioManager.AUDIOFOCUS_LOSS ||
-            change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ||
-            change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
-            pause()
-        }
-    }
+    private var focusListener: AudioManager.OnAudioFocusChangeListener? = null
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) pause()
+            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) onInterrupted()
         }
     }
     init {
@@ -57,10 +52,14 @@ class OfflineAyahPlayer(
             val mp = player ?: return
             val end = segmentEnd ?: return
             if (!isPlaying()) return
-            if (runCatching { mp.currentPosition >= end }.getOrDefault(false)) {
-                stop()
-                onFinished()
-            } else handler.postDelayed(this, 30)
+            try {
+                if (mp.currentPosition >= end) {
+                    stop()
+                    onFinished()
+                } else handler.postDelayed(this, 30)
+            } catch (e: IllegalStateException) {
+                fail("Local audio position unavailable")
+            }
         }
     }
 
@@ -70,8 +69,7 @@ class OfflineAyahPlayer(
         val mp = MediaPlayer()
         player = mp
         try {
-            require(requiredDurationMs >= 0) { "Invalid timing duration" }
-            require(startMs >= 0 && (endMs == null || endMs > startMs)) { "Invalid audio segment" }
+            val range = PlaybackRange(startMs, endMs, requiredDurationMs)
             segmentEnd = endMs
             playWhenReady = true
             mp.setAudioAttributes(attributes)
@@ -89,10 +87,7 @@ class OfflineAyahPlayer(
             mp.setOnPreparedListener {
                 if (player !== mp) return@setOnPreparedListener
                 try {
-                    require(requiredDurationMs <= mp.duration) { "Word timeline extends beyond this recording" }
-                    require(startMs < mp.duration && (endMs == null || endMs <= mp.duration)) {
-                        "Word timing is outside audio duration"
-                    }
+                    range.validateDuration(mp.duration)
                     prepared = true
                     if (startMs > 0) {
                         seeking = true
@@ -109,6 +104,12 @@ class OfflineAyahPlayer(
         if (!prepared || seeking || !playWhenReady) return
         try {
             if (!requestFocus()) { fail("Audio focus unavailable. Return to this screen and try again."); return }
+            val end = segmentEnd
+            if (end != null && mp.currentPosition >= end) {
+                stop()
+                onFinished()
+                return
+            }
             mp.start()
             handler.removeCallbacks(checkpoint)
             if (segmentEnd != null) handler.post(checkpoint)
@@ -117,32 +118,55 @@ class OfflineAyahPlayer(
 
     private fun requestFocus(): Boolean {
         if (hasFocus) return true
+        // A call can already be active before this player requests focus.
+        when (audioManager.mode) {
+            AudioManager.MODE_RINGTONE, AudioManager.MODE_IN_CALL, AudioManager.MODE_IN_COMMUNICATION -> return false
+        }
+        val listener = object : AudioManager.OnAudioFocusChangeListener {
+            override fun onAudioFocusChange(change: Int) {
+                // An abandoned request can still have a callback queued.
+                if (focusListener !== this) return
+                when (change) {
+                    AudioManager.AUDIOFOCUS_LOSS, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> onInterrupted()
+                }
+            }
+        }
+        focusListener = listener
         val result = if (Build.VERSION.SDK_INT >= 26) {
             val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(attributes).setWillPauseWhenDucked(true)
-                .setOnAudioFocusChangeListener(focusListener, handler).build()
+                .setOnAudioFocusChangeListener(listener, handler).build()
             focusRequest = request
             audioManager.requestAudioFocus(request)
         } else {
-            audioManager.requestAudioFocus(focusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+            audioManager.requestAudioFocus(listener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
         }
         hasFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
         return hasFocus
     }
+
     private fun abandonFocus() {
+        val listener = focusListener
+        focusListener = null
         if (Build.VERSION.SDK_INT >= 26) focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
-        else if (hasFocus) audioManager.abandonAudioFocus(focusListener)
+        else if (listener != null && hasFocus) audioManager.abandonAudioFocus(listener)
         focusRequest = null
         hasFocus = false
     }
+
     private fun fail(message: String) { stop(); onError(message) }
     fun currentPositionMs(): Int? = if (prepared && !seeking) runCatching { player?.currentPosition }.getOrNull() else null
     fun isPlaying(): Boolean = prepared && !seeking && runCatching { player?.isPlaying == true }.getOrDefault(false)
     fun pause() {
         playWhenReady = false // Also cancels start if prepare/seek completes after onStop.
         handler.removeCallbacks(checkpoint)
-        if (prepared) runCatching { player?.takeIf { it.isPlaying }?.pause() }
-        abandonFocus()
+        try {
+            if (prepared) player?.takeIf { it.isPlaying }?.pause()
+            abandonFocus()
+        } catch (e: IllegalStateException) {
+            fail("Unable to pause local audio")
+        }
     }
     fun resume() { if (!released && player != null) { playWhenReady = true; startIfReady() } }
     fun stop() {

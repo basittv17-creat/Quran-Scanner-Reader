@@ -11,8 +11,7 @@ object WordHighlightText {
     fun decorate(canonicalArabic: String, activeIndex: Int): SpannableString {
         val spans = SpannableString(canonicalArabic)
         if (activeIndex < 0) return spans
-        val regions = Regex("\\S+").findAll(canonicalArabic).toList()
-        val target = regions.getOrNull(activeIndex) ?: return spans
+        val target = WordTimingFormat.wordRegions(canonicalArabic).elementAtOrNull(activeIndex) ?: return spans
         spans.setSpan(BackgroundColorSpan(Color.rgb(242, 212, 121)), target.range.first,
             target.range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         spans.setSpan(ForegroundColorSpan(Color.rgb(0, 50, 35)), target.range.first,
