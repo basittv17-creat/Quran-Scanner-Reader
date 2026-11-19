@@ -7,7 +7,6 @@ import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
-import java.util.UUID
 import java.util.zip.ZipInputStream
 
 /** Imports user-provided licensed audio as local app-private files. No internet/network calls.
@@ -45,16 +44,15 @@ class OfflineAudioPackStore(private val context: Context) {
     }.getOrNull()
 
     fun audioFile(key: AudioVerseKey): File? {
-        val record = installedManifest()?.entries?.get(key) ?: return null
-        val file = File(active, record.filename)
+        val folder = runCatching { active }.getOrNull() ?: return null
+        val record = manifestAt(folder)?.entries?.get(key) ?: return null
+        val file = File(folder, record.filename)
         return file.takeIf { it.isFile }
     }
 
     fun installArchive(uri: Uri): AudioPackManifest {
         catalog.requireCapacity()
-        check(root.isDirectory || root.mkdirs()) { "Unable to create app-private audio folder" }
-        val stage = File(root, "stage_${UUID.randomUUID()}")
-        check(stage.mkdir()) { "Unable to create staging directory" }
+        val stage = PackStaging.create(root)
         try {
             val names = hashSetOf<String>()
             var totalBytes = 0L
@@ -117,7 +115,7 @@ class OfflineAudioPackStore(private val context: Context) {
             catalog.publishValidated(stage)
             return manifest
         } finally {
-            if (stage.exists()) stage.deleteRecursively()
+            PackStaging.release(stage)
         }
     }
 }
