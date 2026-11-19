@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.View
+import android.widget.CheckBox
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -47,6 +48,12 @@ class RecitationActivity : ComponentActivity() {
     private lateinit var surahInput: EditText
     private lateinit var ayahInput: EditText
     private lateinit var player: OfflineAyahPlayer
+    private val preferences by lazy { getSharedPreferences("quran_reader_settings", MODE_PRIVATE) }
+    private enum class Mode { FULL_AYAH, FOLLOW_WORDS, SELECTED_WORD }
+    private var mode = Mode.FULL_AYAH
+    private lateinit var modeLabel: TextView
+    private lateinit var confirmation: CheckBox
+    private var selectionToken = 0
     private var activeKey = AudioVerseKey(1, 1)
     private var canonicalArabic: String? = null
     private var timing: List<TimedWord>? = null
@@ -107,7 +114,10 @@ class RecitationActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val arabicSize = getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getInt("arabic_size", 25).coerceIn(21, 37)
+        val arabicSize = preferences.getInt("arabic_size", 25).coerceIn(21, 37)
+        mode = runCatching { Mode.valueOf(preferences.getString("recitation_mode", Mode.FULL_AYAH.name)!!) }
+            .getOrDefault(Mode.FULL_AYAH)
+        window.decorView.keepScreenOn = preferences.getBoolean("keep_screen_on", false)
         player = OfflineAyahPlayer(
             applicationContext,
             onFinished = { status.text = "آڈیو ختم ہوگئی۔"; displayWord(-1) },
@@ -115,12 +125,12 @@ class RecitationActivity : ComponentActivity() {
         )
         buildScreen()
         verseView.textSize = arabicSize.toFloat()
-        val s = intent.getIntExtra(EXTRA_SURAH, 1)
-        val a = intent.getIntExtra(EXTRA_AYAH, 1)
+        val s = savedInstanceState?.getInt("surah") ?: intent.getIntExtra(EXTRA_SURAH, 1)
+        val a = savedInstanceState?.getInt("ayah") ?: intent.getIntExtra(EXTRA_AYAH, 1)
         if (QuranVerseCounts.valid(s, a)) {
             surahInput.setText(s.toString()); ayahInput.setText(a.toString())
         }
-        loadSelection()
+        loadSelection(savedInstanceState?.getInt("chosen_word") ?: 0)
     }
 
     private fun buildScreen() {
@@ -164,13 +174,28 @@ class RecitationActivity : ComponentActivity() {
         button("◀ پچھلی آیت") { moveAyah(-1) }
         button("اگلی آیت ▶") { moveAyah(1) }
         verseView = heading("", 25f, gold, true)
-        button("▶ مکمل آیت چلائیں") { followWords = false; displayWord(-1); playFull() }
-        button("▶ مکمل آیت + الفاظ ہائی لائٹ") { followWords = true; playFull() }
+        confirmation = CheckBox(this).apply {
+            text = getString(R.string.confirm_verse)
+            setTextColor(Color.WHITE)
+            setOnCheckedChangeListener { _, checked ->
+                if (!checked) { player.stop(); displayWord(-1) }
+            }
+        }
+        column.addView(confirmation)
+        modeLabel = heading("", 16f, gold)
+        showMode()
+        button(getString(R.string.change_recitation_mode)) {
+            setMode(Mode.entries[(mode.ordinal + 1) % Mode.entries.size])
+        }
+        button(getString(R.string.play_selected_mode)) { playPreferred() }
+        button(getString(R.string.replay_selected_mode)) { playPreferred() }
+        button("▶ مکمل آیت چلائیں") { setMode(Mode.FULL_AYAH); playPreferred() }
+        button("▶ مکمل آیت + الفاظ ہائی لائٹ") { setMode(Mode.FOLLOW_WORDS); playPreferred() }
         button("◀ پچھلا لفظ") { selectWord(chosenWord - 1) }
         button("اگلا لفظ ▶") { selectWord(chosenWord + 1) }
-        button("▶ منتخب لفظ سنیں") { playWord() }
+        button("▶ منتخب لفظ سنیں") { setMode(Mode.SELECTED_WORD); playPreferred() }
         button("⏸ Pause") { player.pause() }
-        button("▶ Resume") { player.resume() }
+        button("▶ Resume") { if (confirmation.isChecked) player.resume() else status.setText(R.string.confirm_before_play) }
         button("■ Stop") { player.stop(); displayWord(-1) }
         button("▣ آڈیو MP3 ZIP امپورٹ کریں") {
             player.stop()
@@ -199,33 +224,74 @@ class RecitationActivity : ComponentActivity() {
         verseView.text = WordHighlightText.decorate(fullText, index)
     }
 
-    private fun loadSelection() {
+    private fun loadSelection(restoredWord: Int = 0) {
         player.stop()
+        confirmation.isChecked = false
+        confirmation.isEnabled = false
         followWords = false
         lastHighlighted = -2
+        canonicalArabic = null
+        timing = null
+        val token = ++selectionToken
         val s = surahInput.text.toString().toIntOrNull()
         val a = ayahInput.text.toString().toIntOrNull()
         if (s == null || a == null || !QuranVerseCounts.valid(s, a)) {
-            canonicalArabic = null
-            timing = null
             verseView.text = "Invalid Surah / Ayah"
             status.text = "Select a valid Quran verse reference."
             return
         }
-        activeKey = AudioVerseKey(s, a)
-        val complete = runCatching { corpus.isComplete() }.getOrDefault(false)
-        canonicalArabic = if (complete) runCatching { corpus.find(VerseId(s, a)) }.getOrNull() else null
-        verseView.text = canonicalArabic ?: "مستند قرآنی متن دستیاب نہیں ہے۔"
-        val audioManifest = audioStore.installedManifest()
-        timing = canonicalArabic?.let { verse -> timingStore.timeline(activeKey, verse, audioManifest) }
-        chosenWord = 0
-        val audio = audioManifest?.entries?.get(activeKey)
-        status.text = when {
-            !complete -> "Verified complete Quran corpus missing. Audio and timing disabled."
-            audio == null -> "No licensed local ayah recording installed for $s:$a."
-            timing == null -> "Ayah audio exists, but no validated local word timings for this exact audio/text."
-            else -> "${timing!!.size} timing windows loaded. Timings are user-supplied and require human listening review."
+        val key = AudioVerseKey(s, a)
+        activeKey = key
+        verseView.text = ""
+        status.setText(R.string.loading_local_verse)
+        // Corpus parsing, manifest reads and timing hashes must not block Android's UI thread.
+        executor.execute {
+            val loaded = runCatching {
+                check(corpus.isComplete()) { "Verified complete Quran corpus missing" }
+                val verse = corpus.find(VerseId(s, a)) ?: error("Canonical verse missing")
+                val audio = audioStore.installedManifest()
+                Triple(verse, audio, timingStore.timeline(key, verse, audio))
+            }
+            runOnUiThread {
+                if (token != selectionToken || isFinishing || isDestroyed) return@runOnUiThread
+                loaded.onSuccess { (verse, audio, windows) ->
+                    canonicalArabic = verse
+                    confirmation.isEnabled = true
+                    timing = windows
+                    chosenWord = restoredWord.coerceIn(0, (windows?.size ?: 1) - 1)
+                    verseView.text = verse
+                    status.text = when {
+                        audio?.entries?.get(key) == null -> "No licensed local ayah recording installed for $s:$a."
+                        windows == null -> "Ayah audio exists, but no validated word timings for this exact audio/text."
+                        else -> "${windows.size} user-supplied timing windows loaded; listening review is still required."
+                    }
+                }.onFailure {
+                    status.text = "Local verse loading failed safely: ${it.message}"
+                }
+            }
         }
+    }
+
+    private fun showMode() {
+        val label = when (mode) {
+            Mode.FULL_AYAH -> R.string.mode_full_ayah
+            Mode.FOLLOW_WORDS -> R.string.mode_follow_words
+            Mode.SELECTED_WORD -> R.string.mode_selected_word
+        }
+        modeLabel.text = getString(R.string.current_recitation_mode, getString(label))
+    }
+
+    private fun setMode(value: Mode) {
+        player.stop()
+        mode = value
+        preferences.edit().putString("recitation_mode", mode.name).apply()
+        showMode()
+    }
+
+    private fun playPreferred() {
+        followWords = mode == Mode.FOLLOW_WORDS
+        if (mode == Mode.SELECTED_WORD) playWord()
+        else { displayWord(-1); playFull() }
     }
 
     private fun playFull() {
@@ -260,6 +326,7 @@ class RecitationActivity : ComponentActivity() {
     }
 
     private fun approvedAudio(): java.io.File? {
+        if (!confirmation.isChecked) { status.setText(R.string.confirm_before_play); return null }
         if (canonicalArabic == null) { status.text = "Playback blocked: verified corpus is incomplete."; return null }
         val file = audioStore.audioFile(activeKey)
         if (file == null) status.text = "No local audio file: import a licensed, checked MP3 pack."
@@ -278,7 +345,16 @@ class RecitationActivity : ComponentActivity() {
         super.onStop()
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt("surah", activeKey.surah)
+        outState.putInt("ayah", activeKey.ayah)
+        outState.putInt("chosen_word", chosenWord)
+        // Confirmation and playback are deliberately not restored after rotation/process recreation.
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onDestroy() {
+        selectionToken++
         timer.removeCallbacks(highlightLoop)
         player.release()
         executor.shutdownNow()

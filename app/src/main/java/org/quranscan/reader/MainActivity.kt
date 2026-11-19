@@ -304,7 +304,7 @@ class MainActivity : Activity() {
             preferences.edit().putBoolean("auto_scan_paused", !autoPaused).apply()
             settings()
         }
-        action("Audio pack / reciter and word timing import") { recitation() }
+        action("Recitation mode and audio pack / reciter settings") { recitation() }
         val availableMb = android.os.StatFs(filesDir.absolutePath).availableBytes / (1024 * 1024)
         label("Internal storage available: $availableMb MB. Audio packs are limited to 1500 MB; timing packs to 40 MB. The installed pack identifies its reciter; no recitation assets are bundled.", 14)
         label("Privacy: local processing only; selected images are not uploaded. Audio/timings are stored privately. Cloud backup is disabled. Manage or remove stored data in Android app settings.", 14)

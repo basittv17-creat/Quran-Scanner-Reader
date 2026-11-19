@@ -1,0 +1,12 @@
+<resources>
+    <string name="confirm_verse">میں نے مکمل عربی متن اور سورت/آیت کا حوالہ اپنے قرآن سے ملا لیا ہے۔</string>
+    <string name="confirm_before_play">تلاوت سے پہلے مکمل آیت اور حوالہ ملا کر تصدیق کریں۔</string>
+    <string name="loading_local_verse">مقامی آیت اور آڈیو معلومات کھولی جا رہی ہیں…</string>
+    <string name="change_recitation_mode">تلاوت کا موڈ تبدیل کریں</string>
+    <string name="play_selected_mode">منتخب موڈ چلائیں</string>
+    <string name="replay_selected_mode">منتخب موڈ دوبارہ چلائیں</string>
+    <string name="mode_full_ayah">مکمل آیت</string>
+    <string name="mode_follow_words">مکمل آیت اور لفظی ہائی لائٹ</string>
+    <string name="mode_selected_word">منتخب لفظ</string>
+    <string name="current_recitation_mode">تلاوت کا موڈ: %1$s</string>
+</resources>
