@@ -1,0 +1,12 @@
+# Local build products / personal state
+.gradle/
+.idea/
+*.iml
+local.properties
+build/
+app/build/
+**/__pycache__/
+*.pyc
+tools/*.jar
+*.keystore
+*.jks

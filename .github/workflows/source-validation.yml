@@ -1,0 +1,39 @@
+name: Android source compile and checks (NO APK / AAB)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate Quran project source and timing pack logic
+        run: python3 tools/verify_phase8.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Compile Kotlin and process resources ONLY
+        run: gradle --no-daemon --stacktrace :app:compileDebugKotlin :app:processDebugResources
+      - name: Prove no APK or AAB was generated
+        if: always()
+        run: |
+          if find . -type f \( -name '*.apk' -o -name '*.aab' \) | grep .; then
+            echo 'Unexpected Android package generated'; exit 1
+          fi
+          echo 'No APK/AAB artifacts found.'
