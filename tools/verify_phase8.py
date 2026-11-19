@@ -11,6 +11,7 @@ base = root / 'app/src/main/java/org/quranscan/reader'
 def run(*args):
     subprocess.run(list(args), check=True, timeout=120)
 
+run('python3', str(root / 'tools/test_source_policy.py'))
 run('python3', str(root / 'tools/test_import_tanzil.py'))
 run('python3', str(root / 'tools/verify_phase7.py'))
 run('python3', str(root / 'tools/test_phase8_packaging.py'))
