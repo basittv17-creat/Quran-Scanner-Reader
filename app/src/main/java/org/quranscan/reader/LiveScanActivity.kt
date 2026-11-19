@@ -97,6 +97,9 @@ class LiveScanActivity : ComponentActivity() {
         savedInstanceState?.getFloatArray("live_scan_region")?.takeIf { it.size == 4 }?.let {
             scanRegion = LiveScanRegion.selection(it[0], it[1], it[2], it[3]) ?: LiveScanRegion.DEFAULT
         }
+        if (savedInstanceState?.getBoolean("live_scan_full_image") == true) {
+            scanRegion = LiveScanRegion.FULL_IMAGE
+        }
         buildInterface()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) !=
             PackageManager.PERMISSION_GRANTED) permissionLauncher.launch(Manifest.permission.CAMERA)
@@ -104,6 +107,7 @@ class LiveScanActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putFloatArray("live_scan_region", scanRegion.coordinates())
+        outState.putBoolean("live_scan_full_image", scanRegion.useFullImage)
         super.onSaveInstanceState(outState)
     }
 
@@ -212,6 +216,11 @@ class LiveScanActivity : ComponentActivity() {
             setOnClickListener { setScanRegion(LiveScanRegion.DEFAULT) }
         }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(exposure)
+        root.addView(Button(this).apply {
+            setText(R.string.live_scan_full_image)
+            isAllCaps = false
+            setOnClickListener { setScanRegion(LiveScanRegion.FULL_IMAGE) }
+        }, LinearLayout.LayoutParams(-1, -2))
         rawOutput = TextView(this).apply {
             text = "Point the camera at a well-lit Quran page. Text below is unverified OCR. " +
                 "No recitation will play until a trusted Quran corpus and verified audio are installed."
@@ -240,11 +249,11 @@ class LiveScanActivity : ComponentActivity() {
     }
 
     private fun setScanRegion(region: LiveScanRegion) {
-        scanRegion = region
+        scanRegion = region.copy()
         reticle.region = region
         reticle.invalidate()
         reviewContainer.removeAllViews()
-        rawOutput.setText(R.string.live_crop_updated)
+        rawOutput.setText(if (region.useFullImage) R.string.live_scan_full_image_selected else R.string.live_crop_updated)
         gate.reset()
     }
 

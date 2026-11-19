@@ -33,6 +33,16 @@ class LiveScanRegionTest {
         )
     }
 
+    @Test fun fullCameraImageBypassesViewportCropAtEveryRotation() {
+        for (rotation in listOf(0, 90, 180, 270)) {
+            assertEquals(
+                CropBounds(0, 0, 400, 300),
+                LiveScanRegion.FULL_IMAGE.bitmapBounds(viewport, rotation, 800, 600, 400, 300)
+            )
+        }
+        assertNull(LiveScanRegion.FULL_IMAGE.bitmapBounds(viewport, 45, 800, 600, 400, 300))
+    }
+
     @Test fun rejectsInvalidSelectionsAndFrames() {
         assertEquals(selection, LiveScanRegion.selection(.5f, .625f, .125f, .25f))
         assertNull(LiveScanRegion.selection(0f, 0f, .01f, 1f))

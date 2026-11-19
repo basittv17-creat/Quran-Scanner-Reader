@@ -64,4 +64,6 @@
     <string name="help_recitation">Import a legally obtained ZIP of ayah MP3 files. Word playback also requires reviewed timings for the exact recordings and text. Playback or highlighting is unavailable when required files are missing or mismatched.</string>
     <string name="help_validation">Testing on physical Android devices and accuracy evaluation on Pakistani and Madani pages are pending. The Arabic text uses Tanzil Uthmani v1.1.</string>
     <string name="about_sources">Arabic OCR uses Tesseract4Android and tessdata_fast (Apache 2.0). The canonical Quran text is Tanzil Uthmani v1.1 (CC BY 3.0), https://tanzil.net. The app includes the original text with integrity checks. Independent scholarly review and review of rendering are pending. Audio and reviewed word timings are imported separately.</string>
+    <string name="live_scan_full_image">Use full camera image</string>
+    <string name="live_scan_full_image_selected">Full image selected. Scan a photo or wait for automatic scanning.</string>
 </resources>
