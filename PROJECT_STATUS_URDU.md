@@ -11,3 +11,7 @@
 - سورس ZIP، Drive backups اور Gmail links دستیاب ہیں۔ تفصیل، ہر مرحلے کی حیثیت اور commit/run links: `PROGRESS_REPORT.md`۔
 
 **کوئی APK یا AAB نہیں بنایا گیا۔**
+
+## تازہ ترقیاتی چیک پوائنٹ
+
+کیمرہ foreground recovery، Tap focus، Exposure controls، Auto Scan preference اور پرانے OCR نتائج کو روکنے کی اصلاحات شامل ہیں۔ Runs 44481527823 اور 44481771624 کامیاب: آٹھ JVM Tests، صفر failures، Lint صفر Errors اور 39 Warnings؛ کوئی APK/AAB نہیں۔ Native Help/Exit، Settings، Insets اور Gallery navigation کی اگلی اصلاحات الگ CI کی منتظر ہیں۔ حقیقی قرآن صفحات، مستند اجازت یافتہ آڈیو، انسانی طور پر جانچے اوقات، علمی جائزہ اور Device QA ابھی باقی ہیں۔ مکمل ایپ کا دعویٰ نہیں۔

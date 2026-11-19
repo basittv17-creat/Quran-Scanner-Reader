@@ -96,6 +96,7 @@ class LiveScanActivity : ComponentActivity() {
             setPadding(dp(12), dp(12), dp(12), dp(12))
         }
         setContentView(root)
+        root.applyReaderInsets()
         val title = TextView(this).apply {
             text = "Quran Scan Reader  •  Live Scan"
             textSize = 19f

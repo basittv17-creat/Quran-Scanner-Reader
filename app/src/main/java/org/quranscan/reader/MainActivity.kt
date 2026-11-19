@@ -52,6 +52,7 @@ class MainActivity : Activity() {
     }
 
     private fun screen(title: String, scrollable: Boolean = true) {
+        scanToken++ // Navigation invalidates pending gallery results.
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
@@ -77,11 +78,14 @@ class MainActivity : Activity() {
         item("Gallery scanner") { gallery() }
         item("Read Quran / recitation") { recitation() }
         item("Settings") { settings() }
+        item("Help") { help() }
         item("About / text source") { about() }
+        item("Exit") { finishAndRemoveTask() }
         item("Offline design preview") { preview() }
         drawer.addView(ScrollView(this).apply { addView(side) }, DrawerLayout.LayoutParams(
             (280 * resources.displayMetrics.density).toInt(), -1, Gravity.START))
         setContentView(drawer)
+        drawer.applyReaderInsets()
         root.addView(Button(this).apply {
             text = "☰ Menu"; contentDescription = "Open navigation menu"
             setOnClickListener { drawer.openDrawer(GravityCompat.START) }
@@ -127,10 +131,12 @@ class MainActivity : Activity() {
         }.getOrElse { "Quran corpus checksum error; matching disabled" }
         label(status, 13)
         label("SCAN THE HOLY QURAN", 15, gold)
-        action("📷 Live Scan — CameraX offline OCR") { camera() }
-        action("▧ Select Image — offline OCR") { gallery() }
+        action("📷 Live Quran Scan") { camera() }
+        action("▧ Upload Quran Picture") { gallery() }
         action("▶ Offline Recitation & Word Highlight · Phase 8") { recitation() }
-        action("☰ Menu / Settings") { menu() }
+        action("Settings") { settings() }
+        action("Help") { help() }
+        action("About") { about() }
         action("WebView design preview") { preview() }
         label("🔒 Offline by design · No Internet permission · OCR results unverified", 12)
     }
@@ -157,8 +163,8 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK || requestCode != pickImage) return
         val uri = data?.data ?: return
-        val token = ++scanToken
         screen("Opening selected image")
+        val token = scanToken
         label("Preparing image offline…", 16)
         worker.execute {
             val bitmap = decodePreview(uri)
@@ -198,8 +204,8 @@ class MainActivity : Activity() {
     }
 
     private fun scan(bitmap: Bitmap) {
-        val token = ++scanToken
         screen("Offline Arabic OCR", scrollable = false)
+        val token = scanToken
         label("اسکین جاری ہے — شناخت شدہ متن ابھی غیر مصدقہ ہے", 17, gold, true)
         label("Profile: $profile   •   All processing happens on your phone", 13)
         root.addView(ImageView(this).apply {
@@ -275,9 +281,29 @@ class MainActivity : Activity() {
             preferences.edit().putBoolean("keep_screen_on", !keepAwake).apply()
             settings()
         }
+        val autoPaused = preferences.getBoolean("auto_scan_paused", false)
+        action("Automatic camera scanning: ${if (autoPaused) "Paused" else "Enabled"}") {
+            preferences.edit().putBoolean("auto_scan_paused", !autoPaused).apply()
+            settings()
+        }
+        action("Audio pack / reciter and word timing import") { recitation() }
+        val availableMb = android.os.StatFs(filesDir.absolutePath).availableBytes / (1024 * 1024)
+        label("Internal storage available: $availableMb MB. Audio packs are limited to 1500 MB; timing packs to 40 MB. The installed pack identifies its reciter; no recitation assets are bundled.", 14)
+        label("Privacy: local processing only; selected images are not uploaded. Audio/timings are stored privately. Cloud backup is disabled. Manage or remove stored data in Android app settings.", 14)
         label("Bundled Arabic model: tessdata_fast / ara.traineddata, Apache-2.0.  No INTERNET permission.", 14)
         action("Back") { menu() }
     }
+    private fun help() {
+        screen("Help")
+        label("Live scan: allow camera permission, keep the page steady in good light, and tap the preview to focus. Darker/Brighter adjusts supported cameras. Pause auto still allows manual Scan photo.", 16)
+        label("Upload picture: choose a local, sharp image. Rotation is read from EXIF. The gold frame is a guide; OCR currently examines the full image.", 16)
+        label("Every OCR result is unverified. Open a candidate, compare the complete canonical verse with your printed page and check the Surah/Ayah before pressing Play. No OCR result starts recitation automatically.", 16)
+        label("Recitation: import your legally obtained ayah MP3 ZIP. Word playback additionally needs reviewed timings for those exact recordings and this text. Missing or mismatched files disable playback/highlighting.", 16)
+        label("Privacy: images are processed locally in memory. No Internet permission, image uploads or analytics. Imported recordings and timing packs stay in app-private storage; Android app storage controls can remove them.", 16)
+        label("This development source has no validated Pakistani/Madani OCR accuracy or device certification. Arabic text follows Tanzil Uthmani v1.1; it does not reproduce a Pakistani 15-line page layout.", 15, gold)
+        action("Home") { home() }
+    }
+
     private fun about() {
         screen("About")
         label("Quran Scan Reader Phase 9 CameraX + Arabic OCR + local recitation engine baseline.\n\n" +
@@ -301,6 +327,7 @@ class MainActivity : Activity() {
         }
         web.loadUrl("file:///android_asset/preview.html")
         setContentView(web)
+        web.applyReaderInsets()
     }
     private fun message(text: String) { Toast.makeText(this, text, Toast.LENGTH_LONG).show() }
     @Deprecated("Prototype navigation")
