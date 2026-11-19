@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.drawerlayout.widget.DrawerLayout
@@ -40,6 +41,7 @@ class MainActivity : Activity() {
     private var galleryBitmap: Bitmap? = null
     private var galleryCrop: GalleryCropView? = null
     private var gallerySelection: CropBounds? = null
+    private var designPreview: android.webkit.WebView? = null
     private var profile = OfflineArabicOcr.Profile.AUTO
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,6 +68,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         scanToken++
+        releaseDesignPreview()
         releaseGalleryPreview()
         worker.shutdownNow()
         super.onDestroy()
@@ -73,6 +76,7 @@ class MainActivity : Activity() {
 
     private fun screen(title: String, scrollable: Boolean = true) {
         scanToken++ // Navigation invalidates pending gallery results.
+        releaseDesignPreview()
         releaseGalleryPreview()
         galleryUri = null
         gallerySelection = null
@@ -423,20 +427,42 @@ class MainActivity : Activity() {
         action("Back") { menu() }
     }
     private fun preview() {
+        scanToken++
+        releaseGalleryPreview()
+        galleryUri = null
+        gallerySelection = null
+        releaseDesignPreview()
         val web = android.webkit.WebView(this)
+        designPreview = web
         web.settings.javaScriptEnabled = false
         web.settings.allowContentAccess = false
         web.settings.allowFileAccess = false
         web.settings.blockNetworkLoads = true
+        val previewAsset = "file:///android_asset/preview.html"
         web.webViewClient = object : android.webkit.WebViewClient() {
+            private fun isPreview(url: String?) = url?.substringBefore('#') == previewAsset
+
             @Deprecated("API 23 compatibility")
-            override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, url: String?): Boolean = true
-            override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, request: android.webkit.WebResourceRequest?): Boolean = true
+            override fun shouldOverrideUrlLoading(view: android.webkit.WebView?, url: String?): Boolean =
+                !isPreview(url)
+
+            override fun shouldOverrideUrlLoading(
+                view: android.webkit.WebView?,
+                request: android.webkit.WebResourceRequest?
+            ): Boolean = request?.isForMainFrame != true || !isPreview(request.url.toString())
         }
-        web.loadUrl("file:///android_asset/preview.html")
+        web.loadUrl(previewAsset)
         setContentView(web)
         web.applyReaderInsets()
     }
+    private fun releaseDesignPreview() {
+        designPreview?.let {
+            (it.parent as? ViewGroup)?.removeView(it)
+            it.destroy()
+        }
+        designPreview = null
+    }
+
     private fun message(text: String) { Toast.makeText(this, text, Toast.LENGTH_LONG).show() }
     @Deprecated("Prototype navigation")
     override fun onBackPressed() { if (::drawer.isInitialized && drawer.isDrawerOpen(GravityCompat.START)) drawer.closeDrawers() else home() }
