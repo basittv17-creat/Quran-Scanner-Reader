@@ -79,3 +79,7 @@ Kotlin compilation and Android resource processing; **never assemble APK, bundle
 AAB, sign, or publish**. The Github repository has **not** been created from this
 environment; see `docs/PHASE9_GITHUB_URDU.md` and the optional user-run
 `tools/push_to_new_github_repo.sh`.
+
+## Current audit — 19 November 2026
+
+GitHub repository is connected. The previous Actions run failed on missing View / QuranVerseCounts imports and incorrect ScrollView property names; these are corrected. The next Actions result is the authority for Android compilation. No APK/AAB commands are authorized. The bundled Quran file remains empty and audio/timing assets are absent. See `PROGRESS_REPORT.md` for the current phase assessment.

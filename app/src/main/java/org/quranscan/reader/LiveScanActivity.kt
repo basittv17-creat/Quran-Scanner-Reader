@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.View
 import android.view.Gravity
 import android.widget.Button
 import android.widget.FrameLayout
@@ -136,7 +137,7 @@ class LiveScanActivity : ComponentActivity() {
         }
         val scroller = ScrollView(this).apply {
             addView(rawOutput)
-            fillViewport = true
+            isFillViewport = true
         }
         root.addView(scroller, LinearLayout.LayoutParams(-1, dp(155)))
         reviewContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }

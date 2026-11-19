@@ -120,7 +120,7 @@ class RecitationActivity : ComponentActivity() {
             setPadding(dp(18), dp(20), dp(18), dp(30))
             setBackgroundColor(dark)
         }
-        setContentView(ScrollView(this).apply { fillViewport = true; addView(column) })
+        setContentView(ScrollView(this).apply { isFillViewport = true; addView(column) })
         fun heading(value: String, size: Float, color: Int = Color.WHITE, rtl: Boolean = false): TextView {
             return TextView(this).apply {
                 text = value; textSize = size; setTextColor(color); gravity = Gravity.CENTER

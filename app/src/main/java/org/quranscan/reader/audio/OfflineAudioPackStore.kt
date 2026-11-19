@@ -1,5 +1,6 @@
 package org.quranscan.reader.audio
 
+import org.quranscan.reader.core.QuranVerseCounts
 import android.content.Context
 import android.net.Uri
 import java.io.BufferedInputStream
