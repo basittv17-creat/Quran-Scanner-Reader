@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.MotionEvent
 import android.view.View
 import android.view.Gravity
 import android.widget.Button
@@ -17,6 +18,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.Camera
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
@@ -50,6 +53,10 @@ class LiveScanActivity : ComponentActivity() {
     private val processing = AtomicBoolean(false)
     private var cameraProvider: ProcessCameraProvider? = null
     private var imageCapture: ImageCapture? = null
+    private var camera: Camera? = null
+    private var cameraStarting = false
+    @Volatile private var session = 0
+    private var exposureSteps = 0
     private lateinit var previewView: PreviewView
     private lateinit var status: TextView
     private lateinit var rawOutput: TextView
@@ -76,10 +83,10 @@ class LiveScanActivity : ComponentActivity() {
                 getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getString("profile", "AUTO") ?: "AUTO"
             )
         }.getOrDefault(OfflineArabicOcr.Profile.AUTO)
+        paused.set(getSharedPreferences("quran_reader_settings", MODE_PRIVATE).getBoolean("auto_scan_paused", false))
         buildInterface()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
-            PackageManager.PERMISSION_GRANTED) startCamera()
-        else permissionLauncher.launch(Manifest.permission.CAMERA)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) !=
+            PackageManager.PERMISSION_GRANTED) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
     private fun buildInterface() {
@@ -100,6 +107,17 @@ class LiveScanActivity : ComponentActivity() {
         previewView = PreviewView(this).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             scaleType = PreviewView.ScaleType.FIT_CENTER
+            contentDescription = "Camera preview. Tap the page to focus and meter exposure."
+            setOnTouchListener { view, event ->
+                if (event.action == MotionEvent.ACTION_UP) {
+                    view.performClick()
+                    camera?.let { current ->
+                        val point = meteringPointFactory.createPoint(event.x, event.y)
+                        current.cameraControl.startFocusAndMetering(FocusMeteringAction.Builder(point).build())
+                    }
+                }
+                true
+            }
         }
         val frame = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         frame.addView(previewView, FrameLayout.LayoutParams(-1, -1))
@@ -123,9 +141,30 @@ class LiveScanActivity : ComponentActivity() {
             buttons.addView(this, LinearLayout.LayoutParams(0, dp(54), 1f))
         }
         control("Scan photo") { capturePhotoOrNextFrame() }
-        togglePause = control("Pause auto") { toggleAutomaticScan() }
+        togglePause = control(if (paused.get()) "Resume auto" else "Pause auto") { toggleAutomaticScan() }
         control("Home") { finish() }
         root.addView(buttons)
+        val exposure = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fun exposureButton(title: String, delta: Int) {
+            exposure.addView(Button(this).apply {
+                text = title; isAllCaps = false
+                setOnClickListener {
+                    val current = camera ?: return@setOnClickListener
+                    val state = current.cameraInfo.exposureState
+                    if (!state.isExposureCompensationSupported) {
+                        showStatus("Exposure adjustment is unavailable on this camera.")
+                    } else {
+                        exposureSteps = (state.exposureCompensationIndex + delta).coerceIn(
+                            state.exposureCompensationRange.lower, state.exposureCompensationRange.upper)
+                        current.cameraControl.setExposureCompensationIndex(exposureSteps)
+                        showStatus("Exposure step: $exposureSteps. Tap the page to focus.")
+                    }
+                }
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        exposureButton("Darker", -1)
+        exposureButton("Brighter", 1)
+        root.addView(exposure)
         rawOutput = TextView(this).apply {
             text = "Point the camera at a well-lit Quran page. Text below is unverified OCR. " +
                 "No recitation will play until a trusted Quran corpus and verified audio are installed."
@@ -147,10 +186,15 @@ class LiveScanActivity : ComponentActivity() {
     }
 
     private fun startCamera() {
-        if (isFinishing || isDestroyed) return
+        if (isFinishing || isDestroyed || cameraStarting || active ||
+            !lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return
+        cameraStarting = true
+        val openingSession = session
         showStatus("Opening CameraX… No internet access is required.")
         val future = ProcessCameraProvider.getInstance(this)
         future.addListener({
+            if (openingSession != session || isDestroyed) return@addListener
+            cameraStarting = false
             if (!lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return@addListener
             try {
                 val provider = future.get()
@@ -170,13 +214,13 @@ class LiveScanActivity : ComponentActivity() {
                 provider.unbindAll()
                 // Some older cameras cannot provide three streams at once.
                 try {
-                    provider.bindToLifecycle(
+                    camera = provider.bindToLifecycle(
                         this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis, still
                     )
                     imageCapture = still
                 } catch (_: Exception) {
                     provider.unbindAll()
-                    provider.bindToLifecycle(
+                    camera = provider.bindToLifecycle(
                         this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis
                     )
                     imageCapture = null
@@ -194,6 +238,7 @@ class LiveScanActivity : ComponentActivity() {
     /** CameraX calls this on one background executor. ImageProxy is ALWAYS closed. */
     private fun analyze(image: ImageProxy) {
         var bitmap: Bitmap? = null
+        val scanSession = session
         try {
             if (!active || processing.get()) return
             val manual = manuallyRequested.getAndSet(false)
@@ -208,31 +253,34 @@ class LiveScanActivity : ComponentActivity() {
             // Important: return camera buffer before running slow Tesseract OCR.
             image.close()
         }
-        if (bitmap != null) recognizeOffline(bitmap)
+        if (bitmap != null) recognizeOffline(bitmap, scanSession)
     }
 
     /** Capture a real CameraX still, or request the next live frame as a fallback. */
     private fun capturePhotoOrNextFrame() {
         if (!active) { showStatus("The camera is not ready."); return }
-        if (processing.get()) { showStatus("Previous scan is still running. Try again."); return }
+        if (!processing.compareAndSet(false, true)) { showStatus("Previous scan is still running. Try again."); return }
+        val captureSession = session
         val still = imageCapture
         if (still == null) {
             manuallyRequested.set(true)
+            processing.set(false)
             showStatus("This camera supports frame scanning; capturing the next live frame…")
             return
         }
-        // Pause automatic attempts briefly while a still is captured.
-        processing.set(true)
+        // The atomic claim above excludes the analyzer while capturing.
         showStatus("Capturing a Quran page with CameraX…")
         still.takePicture(analysisExecutor, object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
+                var upright: Bitmap? = null
                 try {
-                    val upright = toUprightBitmap(image)
-                    recognizeOffline(upright)
+                    if (!active || captureSession != session) { processing.set(false); return }
+                    upright = toUprightBitmap(image)
                 } catch (e: Exception) {
                     postStatus("Capture failed safely: ${e.message ?: "unknown"}")
                     processing.set(false)
                 } finally { image.close() }
+                upright?.let { recognizeOffline(it, captureSession) }
             }
 
             override fun onError(exception: ImageCaptureException) {
@@ -245,6 +293,7 @@ class LiveScanActivity : ComponentActivity() {
     private fun toggleAutomaticScan() {
         val nowPaused = !paused.get()
         paused.set(nowPaused)
+        getSharedPreferences("quran_reader_settings", MODE_PRIVATE).edit().putBoolean("auto_scan_paused", nowPaused).apply()
         togglePause.text = if (nowPaused) "Resume auto" else "Pause auto"
         if (!nowPaused) gate.reset()
         showStatus(if (nowPaused) "Automatic scanning paused. 'Scan photo' still works."
@@ -274,8 +323,9 @@ class LiveScanActivity : ComponentActivity() {
         return resized
     }
 
-    private fun recognizeOffline(bitmap: Bitmap) {
+    private fun recognizeOffline(bitmap: Bitmap, scanSession: Int) {
         try {
+            if (!active || scanSession != session) return
             postStatus("Processing Arabic OCR completely offline…")
             val scan = OfflineArabicOcr(applicationContext).read(bitmap, profile)
             val corpus = OfflineCorpus(applicationContext)
@@ -283,7 +333,7 @@ class LiveScanActivity : ComponentActivity() {
             val candidates = if (complete)
                 VerseCandidates.suggest(scan.rawUnverifiedText, corpus.asMap()) else emptyList()
             runOnUiThread {
-                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (!active || scanSession != session || isFinishing || isDestroyed) return@runOnUiThread
                 reviewContainer.removeAllViews()
                 if (complete && candidates.isNotEmpty()) {
                     candidates.take(3).forEach { candidate ->
@@ -325,19 +375,26 @@ class LiveScanActivity : ComponentActivity() {
     }
 
     private fun postStatus(msg: String) = runOnUiThread {
-        if (!isFinishing && !isDestroyed) showStatus(msg)
+        if (active && !isFinishing && !isDestroyed) showStatus(msg)
     }
     private fun showStatus(msg: String) { status.text = msg }
     private fun dp(v: Int) = (v * resources.displayMetrics.density + 0.5f).toInt()
 
     override fun onStop() {
         active = false
+        session++
+        cameraStarting = false
+        manuallyRequested.set(false)
+        imageCapture = null
+        camera = null
+        cameraProvider?.unbindAll()
         super.onStop()
     }
 
     override fun onStart() {
         super.onStart()
-        if (cameraProvider != null) { active = true; gate.reset() }
+        gate.reset()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) startCamera()
     }
 
     override fun onDestroy() {

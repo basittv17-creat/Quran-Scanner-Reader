@@ -91,3 +91,9 @@ Commit `507157fc79acdce7dad38012d1e7ebeaa39707d4`, Actions https://github.com/ba
 ### Native audio controls and interruptions
 
 Replaced synchronous MediaPlayer preparation with prepareAsync. Delayed callbacks check current player identity; Pause during preparation/seek prevents later background start. Playback waits for seek completion, checks timing against exact audio duration, requests audio focus with API 23 fallback and pauses on focus loss/headphone disconnect. Resume is explicit. Added previous/next ayah selection across all surahs, without auto-play or wrapping at Quran boundaries. A JVM test checks all adjacent references and round trips. Device playback/interrupt/seek QA remains DEFERRED under the no-APK rule. No recording/timing assets added.
+
+### Camera lifecycle and manual controls checkpoint
+
+Audit started from `dc48d48425df144b6d1f21365965fd7d1b0c0938` (12 commits). Actions run 44480551742 was observed completed/success. Camera opening is now retried on each foreground start, with session tokens rejecting obsolete provider/OCR callbacks after backgrounding. Manual capture claims the processing gate atomically, and closes still-image camera buffers before OCR. Added tap focus/metering, bounded darker/brighter exposure controls, and persisted automatic-scan pause preference. No OCR certainty, crop accuracy or device QA claims are made.
+
+Local source policy, complete corpus provenance and five OCR metric tests passed. Local Gradle/kotlinc are unavailable; Android compilation/resources/JVM/lint must be verified by the new GitHub Actions run. Device lifecycle, camera focus/exposure, rotation and layouts remain deferred under the no-APK rule. Licensed real-page fixtures, recordings, reviewed word timings and scholarly review remain blockers.
