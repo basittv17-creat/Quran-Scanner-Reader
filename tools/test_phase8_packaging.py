@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Check that the pack builder rejects incomplete Quran and invalid timing rows."""
+"""Check rejection and hash binding with temporary, synthetic pack fixtures."""
 import argparse
+import hashlib
+import json
+import zipfile
 from pathlib import Path
 import tempfile
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build_audio_pack import build as build_audio
 from build_word_timing_pack import build, canonical, check_tsv, audio_entries
 
 with tempfile.TemporaryDirectory() as temp:
@@ -36,4 +40,40 @@ with tempfile.TemporaryDirectory() as temp:
         raise AssertionError('Builder accepted incomplete Quran')
     except ValueError:
         pass
-print('PASS: Python timing pack builder safety and incomplete Quran rejection')
+
+    # Exercise both builders together. The clip bytes and word windows are
+    # synthetic test inputs and exist only in this temporary directory.
+    corpus = Path(__file__).resolve().parents[1] / 'app/src/main/assets/quran/verses.jsonl'
+    first_verse = json.loads(corpus.read_bytes().split(b'\n', 1)[0])
+    arabic = first_verse['arabic']
+    assert (first_verse['surah'], first_verse['ayah']) == (1, 1)
+    word_count = len(arabic.split())
+    timing_bytes = ''.join(
+        f'{index}\t{(index - 1) * 100}\t{index * 100}\n'
+        for index in range(1, word_count + 1)
+    ).encode('utf-8')
+    (t / '001_001.tsv').write_bytes(timing_bytes)
+    clips = d / 'clips'
+    clips.mkdir()
+    opts.corpus = corpus
+
+    for clip_bytes in (b'synthetic fixture one', b'synthetic fixture two'):
+        (clips / '001_001.mp3').write_bytes(clip_bytes)
+        audio_pack = d / 'audio.zip'
+        assert build_audio(clips, audio_pack, 'Test', 'Synthetic fixture', 'Test only', False) == 1
+        with zipfile.ZipFile(audio_pack) as archive:
+            m.write_bytes(archive.read('manifest.tsv'))
+        build(opts)
+        with zipfile.ZipFile(opts.output) as archive:
+            assert sorted(archive.namelist()) == ['001_001.tsv', 'manifest.tsv']
+            assert archive.read('001_001.tsv') == timing_bytes
+            row = archive.read('manifest.tsv').decode().splitlines()[-1].split('\t')
+            assert row == [
+                '1', '1', '001_001.tsv',
+                hashlib.sha256(timing_bytes).hexdigest(),
+                hashlib.sha256(clip_bytes).hexdigest(),
+                hashlib.sha256(arabic.encode('utf-8')).hexdigest(),
+                str(word_count),
+            ]
+
+print('PASS: Python timing pack builder rejection and synthetic audio/text digest binding')
