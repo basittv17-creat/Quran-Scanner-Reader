@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from ocr_benchmark import distance, evaluate, read_rows
+from ocr_benchmark import DATASET_SCHEMA, distance, evaluate, evaluate_dataset, read_rows
 
 
 class BenchmarkTests(unittest.TestCase):
@@ -77,7 +77,7 @@ class BenchmarkTests(unittest.TestCase):
 
 
     def test_malformed_jsonl_reports_physical_line(self):
-        for bad_line in (b'{', b'[]', b'null', bytes([255])):
+        for bad_line in (b'{', b'[]', b'null', b'{"x":1,"x":2}', bytes([255])):
             with self.subTest(bad_line=bad_line), self.assertRaisesRegex(ValueError, 'line 3'):
                 list(read_rows(b'{}\r\n\n' + bad_line))
 
@@ -146,6 +146,110 @@ class BenchmarkTests(unittest.TestCase):
             self.assertEqual(invalid.returncode, 2)
             self.assertIn(b'line 3', invalid.stderr)
             self.assertEqual(json.loads(output.read_text(encoding='utf-8')), report)
+
+
+class DatasetTests(unittest.TestCase):
+    """Metadata and byte fixtures only. No genuine images or reviewed labels."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.images = Path(directory.name)
+        self.manifest = dict(schema=DATASET_SCHEMA, dataset_version='fixture-1',
+                             split_protocol='fixture', label_policy='fixture', captures=[
+            self.capture('train', 'train'), self.capture('test', 'test'),
+        ])
+        self.observation = dict(
+            capture_id='test', sample_id='run', image_sha256=self.manifest['captures'][1]['image_sha256'],
+            device='fixture Android', app_commit='a' * 40, model_sha256='b' * 64, profile='auto',
+            matcher='fixture', decision_rule='fixture', candidate_confidence=1,
+            raw_ocr='ب', predicted_refs=[[1, 1]], latency_ms=10,
+        )
+
+    def capture(self, name, split):
+        content = name.encode()
+        digest = hashlib.sha256(content).hexdigest()
+        (self.images / digest).write_bytes(content)
+        return dict(
+            capture_id=name, page_id=name, content_group=name, split=split, script='madani',
+            printing='fixture printing', publisher='fixture publisher', capture_device='fixture camera',
+            capture_setup='fixture setup', condition='skew', source_url='https://example.invalid/source',
+            rights_evidence_url='https://example.invalid/rights', rights_checked_on='2026-11-19',
+            edition_rights='fixture', photograph_rights='fixture', benchmark_approved=True,
+            redistribution='restricted', reviewer='fixture author', independent_reviewer='fixture checker',
+            review_evidence='fixture only', expected_text='بِ', expected_refs=[[1, 1]],
+            original_sha256=digest, image_sha256=digest,
+        )
+
+    def score(self, *observations):
+        return evaluate_dataset(self.manifest, observations or [self.observation], self.images)
+
+    def test_strict_marks_and_confidence_outcomes_by_condition(self):
+        report = self.score(self.observation, dict(self.observation, sample_id='abstained',
+                            decision_rule='other', predicted_refs=[], candidate_confidence=.4))
+        self.assertEqual(report['schema'], 'QSR-OCR-BENCHMARK-3')
+        self.assertEqual([(r['condition'], r['metrics']['cer']) for r in report['by_condition']],
+                         [('skew', .5), ('skew', .5)])
+        counts = report['candidate_confidence_counts']
+        self.assertEqual([(r['confidence_decile'], r['correct'], r['abstained']) for r in counts],
+                         [('9', 1, 0), ('4', 0, 1)])
+
+    def test_reject_split_leakage_by_page_alias_and_bytes(self):
+        train, test = self.manifest['captures']
+        for key in ('page_id', 'content_group', 'original_sha256', 'image_sha256'):
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, 'Train/test overlap'):
+                self.manifest['captures'][1] = dict(test, **{key: train[key]})
+                self.score()
+
+    def test_missing_review_rights_and_labels_are_rejected(self):
+        test = self.manifest['captures'][1]
+        for change in (dict(independent_reviewer=' FIXTURE AUTHOR '), dict(edition_rights=''),
+                       dict(benchmark_approved=False), dict(expected_refs=[]),
+                       dict(source_url='http://example.invalid'), dict(rights_checked_on='2026-02-30')):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                self.manifest['captures'][1] = dict(test, **change)
+                self.score()
+
+    def test_reject_duplicates_corrupted_bytes_and_unbound_observation(self):
+        with self.assertRaisesRegex(ValueError, 'Duplicate OCR input'):
+            self.score(self.observation, dict(self.observation, sample_id='alias'))
+        with self.assertRaisesRegex(ValueError, 'frozen test'):
+            self.score(dict(self.observation, capture_id='train'))
+        with self.assertRaisesRegex(ValueError, 'differs'):
+            self.score(dict(self.observation, image_sha256='c' * 64))
+        with self.assertRaisesRegex(ValueError, 'Duplicate capture_id'):
+            self.manifest['captures'].append(self.manifest['captures'][1])
+            self.score()
+        self.manifest['captures'].pop()
+        (self.images / self.observation['image_sha256']).write_bytes(b'changed')
+        with self.assertRaisesRegex(ValueError, 'SHA-256 mismatch'):
+            self.score()
+
+    def test_missing_or_invalid_prediction_fields(self):
+        for key in ('predicted_refs', 'candidate_confidence'):
+            row = dict(self.observation)
+            del row[key]
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                self.score(row)
+        for score in (True, -1, float('nan'), None):
+            with self.subTest(score=score), self.assertRaises(ValueError):
+                self.score(dict(self.observation, candidate_confidence=score))
+
+    def test_cli_report_is_byte_reproducible_and_binds_inputs(self):
+        manifest = self.images / 'manifest.json'
+        samples = self.images / 'samples.jsonl'
+        output = self.images / 'report.json'
+        manifest.write_text(json.dumps(self.manifest), encoding='utf-8')
+        samples.write_text(json.dumps(self.observation) + '\n', encoding='utf-8')
+        command = [sys.executable, str(Path(__file__).with_name('ocr_benchmark.py')), str(samples),
+                   '--manifest', str(manifest), '--images', str(self.images), '--output', str(output)]
+        subprocess.run(command, check=True, capture_output=True)
+        first = output.read_bytes()
+        subprocess.run(command, check=True, capture_output=True)
+        self.assertEqual(output.read_bytes(), first)
+        report = json.loads(first)
+        for field, path in (('manifest_sha256', manifest), ('input_sha256', samples)):
+            self.assertEqual(report[field], hashlib.sha256(path.read_bytes()).hexdigest())
 
 
 if __name__ == '__main__': unittest.main()

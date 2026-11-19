@@ -123,3 +123,56 @@ path and freeze how it converts results into predictions. For ranked
 suggestions, document the selection and abstention rule. A ranked list of
 alternatives cannot be interpreted as an ordered list of visible ayahs.
 Use raw OCR for strict CER/WER and record user confirmation separately.
+
+## Versioned dataset intake
+
+Use the existing evaluator with the frozen capture manifest and the exact local
+input bytes:
+
+```sh
+python3 tools/ocr_benchmark.py observations.jsonl --manifest manifest.json \
+  --images verified-images --output report.json
+```
+
+The manifest is one JSON object with `schema: "QSR-OCR-DATASET-1"`, a
+`dataset_version`, a `split_protocol` (algorithm, seed and inventory reference),
+a `label_policy` (approved transcription and review rules), and a `captures` array.
+Freeze and archive the manifest before exporting predictions. Increment the
+dataset version for any corrected label, changed input or split change.
+Keep evidence and images in access-controlled offline storage where required
+by their terms. Admission requires checking the underlying permissions and
+review records.
+
+| Capture fields | Required evidence |
+|---|---|
+| `capture_id`, `page_id`, `content_group`, `split` | Stable capture, imprint/page and passage or artwork-group identifiers. Use `train` for development and `test` for held-out evaluation. Give crops and other variants the parent page ID. Group overlapping content and reprints that could leak across the split. |
+| `script`, `publisher`, `printing` | `indo-pak` or `madani`, named publisher and precise imprint/edition/year or print-run identifier. Keep condition out of the printing label for this schema. |
+| `source_url`, `rights_evidence_url`, `rights_checked_on` | HTTPS edition/capture and permission evidence URLs, including private authenticated evidence URLs where appropriate, and the review date as YYYY-MM-DD. Preserve dated copies of the terms and written grants offline. |
+| `edition_rights`, `photograph_rights`, `benchmark_approved`, `redistribution` | Record rights holders, applicable clauses or grant IDs, approved internal uses and attribution. Set approval to JSON `true` only after clearance. Record redistribution as `approved` or `restricted`. A restricted dataset stays in the approved environment. |
+| `original_sha256`, `image_sha256` | Lowercase SHA-256 of original capture and exact OCR input. Store each under its digest filename in the local image directory. |
+| `condition`, `capture_device`, `capture_setup` | One of `baseline`, `low-light`, `blur`, `skew`, `rotation`. Record device/OS, acquisition date, lens/distance, dimensions, target and measured lighting, blur method, perspective tilt or roll/orientation, and ordered processing parameters with tool versions. Label each paired variation by its primary condition. Record combined factors in the setup. |
+| `expected_text`, `expected_refs`, `reviewer`, `independent_reviewer`, `review_evidence` | Exact reviewed transcription and nonempty ordered reference pairs. Record distinct human reviewer IDs and reference their dated sign-off and adjudication. Give reviewers access to the exact OCR input. Keep labels blind to predictions. |
+
+Use one JSONL observation per exact input and configuration. Supply
+`sample_id`, `capture_id`, `image_sha256`, `device`, `app_commit`,
+`model_sha256`, `profile`, `matcher`, `decision_rule`, `raw_ocr`,
+`predicted_refs`, `latency_ms` and `candidate_confidence`.
+Record the engine version, input path and cold/warm setup in the profile.
+Use the top decision score on a 0–1 scale, or explicit `null` when
+unavailable and the matcher abstained. Treat a matcher's score as a
+diagnostic and record any deterministic score conversion in the rule.
+Freeze tie handling, threshold and failure handling on train before
+measuring held-out test observations. Include blank OCR and abstentions.
+The manifest supplies all expected transcription, references and rights fields.
+
+The evaluator hashes the original and OCR input bytes, checks the entire
+inventory for exact cross-split hash and canonical page/content-group overlap,
+and scores only referenced test captures. Check visually similar images and
+page aliases during intake. Collect a paired test observation for every
+planned configuration that supports the capture. Archive the run plan and
+explain coverage gaps against the eligible and observed counts. Compare
+performance by printing, condition, device, model and decision rule. The
+confidence table counts correct, wrong and abstained decisions in score
+deciles (9 includes 1.0), plus an unavailable bucket. These counts do not
+establish calibrated probabilities. Bind reruns to the manifest/export SHA
+values, evaluator commit and Python version.
