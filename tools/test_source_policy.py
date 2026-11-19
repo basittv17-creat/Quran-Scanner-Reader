@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Regression tests for the offline manifest and backup policies."""
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 import xml.etree.ElementTree as ET
 
-from check_source_policy import ANDROID, check_privacy_policy
+from check_source_policy import ANDROID, check_privacy_policy, check_variant_manifests
 
 
 class PrivacyPolicyTest(unittest.TestCase):
@@ -23,6 +24,21 @@ class PrivacyPolicyTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'INTERNET'):
                     check_privacy_policy(self.manifest, self.rules)
                 self.manifest.remove(permission)
+
+    def test_rejects_network_permission_in_variant_manifest(self):
+        with TemporaryDirectory() as directory:
+            source_sets = Path(directory)
+            manifest_path = source_sets / 'debug' / 'AndroidManifest.xml'
+            manifest_path.parent.mkdir()
+            overlay = ET.Element('manifest')
+            ET.ElementTree(overlay).write(manifest_path)
+            check_variant_manifests(source_sets)
+            ET.SubElement(overlay, 'uses-permission-sdk-23', {
+                ANDROID + 'name': 'android.permission.INTERNET',
+            })
+            ET.ElementTree(overlay).write(manifest_path)
+            with self.assertRaisesRegex(ValueError, 'debug.*INTERNET'):
+                check_variant_manifests(source_sets)
 
     def test_rejects_reenabled_backup(self):
         self.manifest.find('application').set(ANDROID + 'allowBackup', 'true')

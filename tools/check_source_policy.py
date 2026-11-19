@@ -10,11 +10,15 @@ BACKUP_DOMAINS = {
 }
 
 
-def check_privacy_policy(manifest, extraction_rules):
+def check_network_permission(manifest):
     for element in manifest:
         if element.tag.startswith('uses-permission'):
             if element.get(ANDROID + 'name') == 'android.permission.INTERNET':
                 raise ValueError('INTERNET permission is forbidden')
+
+
+def check_privacy_policy(manifest, extraction_rules):
+    check_network_permission(manifest)
     application = manifest.find('application')
     if application is None:
         raise ValueError('Missing application declaration')
@@ -40,6 +44,16 @@ def check_privacy_policy(manifest, extraction_rules):
             raise ValueError(f'Missing {mode} exclusions: {sorted(missing)}')
 
 
+def check_variant_manifests(source_sets):
+    for path in sorted(source_sets.glob('*/AndroidManifest.xml')):
+        if path.parent.name == 'main':
+            continue
+        try:
+            check_network_permission(ET.parse(path).getroot())
+        except ValueError as error:
+            raise ValueError(f'{path}: {error}') from error
+
+
 def main():
     root = Path(__file__).resolve().parent.parent
     source = root / 'app/src/main'
@@ -47,6 +61,7 @@ def main():
         ET.parse(source / 'AndroidManifest.xml').getroot(),
         ET.parse(source / 'res/xml/data_extraction_rules.xml').getroot(),
     )
+    check_variant_manifests(source.parent)
     for path in root.rglob('*.gradle.kts'):
         if 'build' in path.parts or '.gradle' in path.parts:
             continue
