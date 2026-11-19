@@ -86,7 +86,7 @@ class RecitationActivity : ComponentActivity() {
         if (uri == null) return@registerForActivityResult
         cancelPlayback()
         importBusy = true
-        status.text = "آف لائن آڈیو پیک کی جانچ جاری ہے…"
+        status.text = getString(R.string.recitation_check_audio)
         executor.execute {
             val result = runCatching { audioStore.installArchive(uri) }
             runOnUiThread {
@@ -105,7 +105,7 @@ class RecitationActivity : ComponentActivity() {
         if (uri == null) return@registerForActivityResult
         cancelPlayback()
         importBusy = true
-        status.text = "لفظ بہ لفظ ٹائمنگ پیک چیک کیا جا رہا ہے…"
+        status.text = getString(R.string.recitation_check_timing)
         executor.execute {
             val result = runCatching { timingStore.install(uri, corpus, audioStore.installedManifest()) }
             runOnUiThread {
@@ -128,7 +128,7 @@ class RecitationActivity : ComponentActivity() {
         window.decorView.keepScreenOn = preferences.getBoolean("keep_screen_on", false)
         player = OfflineAyahPlayer(
             applicationContext,
-            onFinished = { status.text = "آڈیو ختم ہوگئی۔"; displayWord(-1) },
+            onFinished = { status.text = getString(R.string.recitation_finished); displayWord(-1) },
             onError = { status.text = it; displayWord(-1) }
         )
         buildScreen()
@@ -158,29 +158,32 @@ class RecitationActivity : ComponentActivity() {
         }
         fun button(value: String, callback: () -> Unit) {
             column.addView(Button(this).apply {
-                text = value; isAllCaps = false; setOnClickListener {
+                text = value
+                isAllCaps = false
+                minHeight = dp(51)
+                setOnClickListener {
                     if (importBusy) status.setText(R.string.import_busy)
                     else callback()
                 }
-            }, LinearLayout.LayoutParams(-1, dp(51)))
+            }, LinearLayout.LayoutParams(-1, -2))
         }
-        heading("Quran Scan Reader · Offline Recitation", 22f, gold)
-        heading("قرآنی متن: Tanzil Uthmani v1.1۔ آڈیو پیک الگ درکار ہے؛ OCR سے خودکار تلاوت نہیں ہوتی۔", 15f, Color.WHITE, true)
+        heading(getString(R.string.recitation_title), 22f, gold)
+        heading(getString(R.string.recitation_intro), 15f)
         val inputs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         surahInput = EditText(this).apply {
-            hint = "Surah"; setText("1"); inputType = 2; setTextColor(Color.WHITE)
+            hint = getString(R.string.recitation_surah); setText("1"); inputType = 2; setTextColor(Color.WHITE)
             setHintTextColor(Color.LTGRAY); gravity = Gravity.CENTER
         }
         ayahInput = EditText(this).apply {
-            hint = "Ayah"; setText("1"); inputType = 2; setTextColor(Color.WHITE)
+            hint = getString(R.string.recitation_ayah); setText("1"); inputType = 2; setTextColor(Color.WHITE)
             setHintTextColor(Color.LTGRAY); gravity = Gravity.CENTER
         }
         inputs.addView(surahInput, LinearLayout.LayoutParams(0, dp(58), 1f))
         inputs.addView(ayahInput, LinearLayout.LayoutParams(0, dp(58), 1f))
         column.addView(inputs)
-        button("آیت منتخب کریں") { loadSelection() }
-        button("◀ پچھلی آیت") { moveAyah(-1) }
-        button("اگلی آیت ▶") { moveAyah(1) }
+        button(getString(R.string.recitation_choose_ayah)) { loadSelection() }
+        button(getString(R.string.recitation_previous_ayah)) { moveAyah(-1) }
+        button(getString(R.string.recitation_next_ayah)) { moveAyah(1) }
         scanHeading = heading(getString(R.string.scan_comparison_unverified), 15f, gold)
         scannedText = heading("", 18f, Color.WHITE, true)
         verseReference = heading("", 16f, gold)
@@ -204,27 +207,27 @@ class RecitationActivity : ComponentActivity() {
         }
         button(getString(R.string.play_selected_mode)) { playPreferred() }
         button(getString(R.string.replay_selected_mode)) { playPreferred() }
-        button("▶ مکمل آیت چلائیں") { setMode(Mode.FULL_AYAH); playPreferred() }
-        button("▶ مکمل آیت + الفاظ ہائی لائٹ") { setMode(Mode.FOLLOW_WORDS); playPreferred() }
-        button("◀ پچھلا لفظ") { selectWord(chosenWord - 1) }
-        button("اگلا لفظ ▶") { selectWord(chosenWord + 1) }
-        button("▶ منتخب لفظ سنیں") { setMode(Mode.SELECTED_WORD); playPreferred() }
-        button("⏸ Pause") { playbackRequest++; player.pause() }
-        button("▶ Resume") { if (confirmation.isChecked) player.resume() else status.setText(R.string.confirm_before_play) }
-        button("■ Stop") { cancelPlayback(); displayWord(-1) }
-        button("▣ آڈیو MP3 ZIP امپورٹ کریں") {
+        button(getString(R.string.recitation_play_ayah)) { setMode(Mode.FULL_AYAH); playPreferred() }
+        button(getString(R.string.recitation_play_follow)) { setMode(Mode.FOLLOW_WORDS); playPreferred() }
+        button(getString(R.string.recitation_previous_word)) { selectWord(chosenWord - 1) }
+        button(getString(R.string.recitation_next_word)) { selectWord(chosenWord + 1) }
+        button(getString(R.string.recitation_play_word)) { setMode(Mode.SELECTED_WORD); playPreferred() }
+        button(getString(R.string.recitation_pause)) { playbackRequest++; player.pause() }
+        button(getString(R.string.recitation_resume)) { if (confirmation.isChecked) player.resume() else status.setText(R.string.confirm_before_play) }
+        button(getString(R.string.recitation_stop)) { cancelPlayback(); displayWord(-1) }
+        button(getString(R.string.recitation_import_audio)) {
             cancelPlayback()
             importAudio.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
         }
         button(getString(R.string.choose_audio_pack)) { managePacks(false) }
         button(getString(R.string.remove_audio_pack)) { managePacks(true) }
-        button("▣ لفظ بہ لفظ Timing ZIP امپورٹ کریں") {
+        button(getString(R.string.recitation_import_timing)) {
             cancelPlayback()
             importTiming.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
         }
-        status = heading("Checking local resources…", 14f, gold)
-        heading("SHA صرف فائل کی سالمیت چیک کرتا ہے؛ قاری، تلفظ، اعراب اور لفظی اوقات کی انسانی تصدیق باقی رہتی ہے۔", 13f)
-        button("← Home") { finish() }
+        status = heading(getString(R.string.recitation_check_resources), 14f, gold)
+        heading(getString(R.string.recitation_checks_notice), 13f)
+        button(getString(R.string.nav_home)) { finish() }
     }
 
     private fun managePacks(remove: Boolean) {

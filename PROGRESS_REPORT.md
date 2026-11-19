@@ -11,6 +11,8 @@ Main was audited at `d0f730d26fa1c67431696c03d1c4f7a611fe316e`. [Run 44514943361
 
 Both runs passed source-only Kotlin compilation, resource processing, 7 Python OCR benchmark tests, source policy, and the no-APK/AAB gate. JVM tests reported zero failures, errors and skips. All 6,236 Tanzil Uthmani v1.1 verses and both corpus digests were verified. Camera alignment and accessibility on physical Android remain pending.
 
+[Run 44528335088](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44528335088) passed for `cc73e0ae1b59d500ca87d443b01121899c8dcbeb` with 29 JVM tests, zero failures/errors/skips, lint 0 errors / 42 warnings and no APK/AAB. JitPack resolves only the Tesseract4Android module. See the [dependency and private-storage review](docs/NEXT_STEPS.md) for outstanding byte-integrity and native-library advisory work.
+
 The [full-image source backup](https://drive.google.com/file/d/1XB5QkQhFVGDYeafQn7uHSFpuOzhumTig/view) is a new versioned ZIP. Its SHA-256 is `f1ae9a40db7f04cb3d08d9b1d843f6b507bbcd8fbbe106058f8542032dd27cc9`. Local archive validation checked ZIP integrity, both Quran corpus digests and absence of APK/AAB entries.
 
 

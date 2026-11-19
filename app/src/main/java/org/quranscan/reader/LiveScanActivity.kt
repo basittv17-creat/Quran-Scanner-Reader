@@ -120,7 +120,7 @@ class LiveScanActivity : ComponentActivity() {
         setContentView(root)
         root.applyReaderInsets()
         val title = TextView(this).apply {
-            text = "Quran Scan Reader  •  Live Scan"
+            text = getString(R.string.live_title)
             textSize = 19f
             setTextColor(gold)
             gravity = Gravity.CENTER
@@ -175,7 +175,7 @@ class LiveScanActivity : ComponentActivity() {
             setTextColor(gold)
             gravity = Gravity.CENTER
             setPadding(dp(5), dp(8), dp(5), dp(8))
-            text = "Preparing camera…"
+            text = getString(R.string.live_preparing)
         }
         root.addView(status)
         val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -183,12 +183,13 @@ class LiveScanActivity : ComponentActivity() {
             this.text = text
             isAllCaps = false
             textSize = 12f
+            minHeight = dp(54)
             setOnClickListener { click() }
-            buttons.addView(this, LinearLayout.LayoutParams(0, dp(54), 1f))
+            buttons.addView(this, LinearLayout.LayoutParams(0, -2, 1f))
         }
-        control("Scan photo") { capturePhotoOrNextFrame() }
-        togglePause = control(if (paused.get()) "Resume auto" else "Pause auto") { toggleAutomaticScan() }
-        control("Home") { finish() }
+        control(getString(R.string.live_scan_photo)) { capturePhotoOrNextFrame() }
+        togglePause = control(if (paused.get()) getString(R.string.live_resume_auto) else getString(R.string.live_pause_auto)) { toggleAutomaticScan() }
+        control(getString(R.string.nav_home)) { finish() }
         root.addView(buttons)
         val exposure = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         fun exposureButton(title: String, delta: Int) {
@@ -208,8 +209,8 @@ class LiveScanActivity : ComponentActivity() {
                 }
             }, LinearLayout.LayoutParams(0, -2, 1f))
         }
-        exposureButton("Darker", -1)
-        exposureButton("Brighter", 1)
+        exposureButton(getString(R.string.live_darker), -1)
+        exposureButton(getString(R.string.live_brighter), 1)
         exposure.addView(Button(this).apply {
             setText(R.string.live_crop_reset)
             isAllCaps = false
@@ -376,7 +377,7 @@ class LiveScanActivity : ComponentActivity() {
         val nowPaused = !paused.get()
         paused.set(nowPaused)
         getSharedPreferences("quran_reader_settings", MODE_PRIVATE).edit().putBoolean("auto_scan_paused", nowPaused).apply()
-        togglePause.text = if (nowPaused) "Resume auto" else "Pause auto"
+        togglePause.text = if (nowPaused) getString(R.string.live_resume_auto) else getString(R.string.live_pause_auto)
         if (!nowPaused) gate.reset()
         showStatus(if (nowPaused) "Automatic scanning paused. 'Scan photo' still works."
             else "Automatic scanning resumed. Text remains unverified.")
