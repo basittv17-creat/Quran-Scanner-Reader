@@ -50,6 +50,7 @@ class RecitationActivity : ComponentActivity() {
     private var activeKey = AudioVerseKey(1, 1)
     private var canonicalArabic: String? = null
     private var timing: List<TimedWord>? = null
+    private var importBusy = false
     private var chosenWord = 0
     private var followWords = false
     private var lastHighlighted = -2
@@ -69,11 +70,13 @@ class RecitationActivity : ComponentActivity() {
     private val importAudio = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@registerForActivityResult
         player.stop()
+        importBusy = true
         status.text = "آف لائن آڈیو پیک کی جانچ جاری ہے…"
         executor.execute {
             val result = runCatching { audioStore.installArchive(uri) }
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
+                importBusy = false
                 status.text = result.fold(
                     onSuccess = { "Audio clips: ${it.entries.size}. Source not independently audited. Existing word timings may no longer apply." },
                     onFailure = { "Audio import rejected: ${it.message ?: "unknown error"}" }
@@ -86,11 +89,13 @@ class RecitationActivity : ComponentActivity() {
     private val importTiming = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@registerForActivityResult
         player.stop()
+        importBusy = true
         status.text = "لفظ بہ لفظ ٹائمنگ پیک چیک کیا جا رہا ہے…"
         executor.execute {
             val result = runCatching { timingStore.install(uri, corpus, audioStore.installedManifest()) }
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
+                importBusy = false
                 status.text = result.fold(
                     onSuccess = { "Timing files accepted: ${it.entries.size}. Alignment accuracy is NOT independently authenticated." },
                     onFailure = { "Timing import rejected: ${it.message ?: "unknown error"}" }
@@ -135,7 +140,10 @@ class RecitationActivity : ComponentActivity() {
         }
         fun button(value: String, callback: () -> Unit) {
             column.addView(Button(this).apply {
-                text = value; isAllCaps = false; setOnClickListener { callback() }
+                text = value; isAllCaps = false; setOnClickListener {
+                    if (importBusy) status.text = "Import in progress. Playback and selection are paused until validation finishes."
+                    else callback()
+                }
             }, LinearLayout.LayoutParams(-1, dp(51)))
         }
         heading("Quran Scan Reader · Offline Recitation", 22f, gold)

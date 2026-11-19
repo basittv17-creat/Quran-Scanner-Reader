@@ -37,7 +37,7 @@ assert all(t in (base / 'RecitationActivity.kt').read_text() for t in [
     'playWord()', 'WordHighlightText.decorate', 'timingStore.install', 'corpus.isComplete()',
     'player.currentPositionMs()'])
 assert all(t in (base / 'audio/OfflineWordTimingStore.kt').read_text() for t in [
-    'ZipInputStream', 'stage.renameTo(active)', 'verseDigest', 'audio.entries', 'SHA-256' if False else 'sha256'])
+    'ZipInputStream', 'PackActivation.activate(root, stage)', 'verseDigest', 'audio.entries', 'SHA-256' if False else 'sha256'])
 assert 'WordHighlightText' in (base / 'audio/WordHighlightText.kt').read_text()
 assert 'versionName = "0.9.0-dev"' in (root / 'app/build.gradle.kts').read_text()
 print('PASS: Phase 8 offline source/module security checks and no INTERNET permission')

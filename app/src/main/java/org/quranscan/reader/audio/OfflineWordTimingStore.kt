@@ -17,7 +17,7 @@ import java.util.zip.ZipInputStream
  */
 class OfflineWordTimingStore(private val context: Context) {
     private val root get() = File(context.filesDir, "offline_word_timings")
-    private val active get() = File(root, "active")
+    private val active get() = PackActivation.recover(root)
     private val filename = Regex("[0-9]{3}_[0-9]{3}\\.tsv")
 
     fun manifest(): WordTimingManifest? = runCatching {
@@ -66,6 +66,7 @@ class OfflineWordTimingStore(private val context: Context) {
                     FileOutputStream(out).use { dest ->
                         val buf = ByteArray(8192)
                         while (true) {
+                            if (Thread.currentThread().isInterrupted) throw InterruptedException("Import cancelled")
                             val n = zip.read(buf)
                             if (n == -1) break
                             if (n == 0) continue
@@ -99,14 +100,8 @@ class OfflineWordTimingStore(private val context: Context) {
                 require(record.wordCount == WordTimingFormat.words(verse).size) { "Word count mismatch" }
                 WordTimingFormat.parseTimeline(bytes.toString(Charsets.UTF_8), record.wordCount)
             }
-            // Atomically-ish swap after full validation; restore prior pack on activation failure.
-            val backup = File(root, "previous_${UUID.randomUUID()}")
-            if (active.exists()) check(active.renameTo(backup))
-            if (!stage.renameTo(active)) {
-                if (backup.exists()) backup.renameTo(active)
-                error("Could not activate timing ZIP")
-            }
-            if (backup.exists()) backup.deleteRecursively()
+            if (Thread.currentThread().isInterrupted) throw InterruptedException("Import cancelled")
+            PackActivation.activate(root, stage)
             return manifest
         } finally {
             if (stage.exists()) stage.deleteRecursively()

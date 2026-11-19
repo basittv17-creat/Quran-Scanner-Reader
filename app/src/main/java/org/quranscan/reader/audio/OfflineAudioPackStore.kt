@@ -16,7 +16,7 @@ import java.util.zip.ZipInputStream
  */
 class OfflineAudioPackStore(private val context: Context) {
     private val root get() = File(context.filesDir, "offline_ayah_audio")
-    private val active get() = File(root, "active")
+    private val active get() = PackActivation.recover(root)
     private val allowedClip = Regex("[0-9]{3}_[0-9]{3}\\.mp3")
 
     fun installedManifest(): AudioPackManifest? = runCatching {
@@ -61,6 +61,7 @@ class OfflineAudioPackStore(private val context: Context) {
                     FileOutputStream(out).use { output ->
                         val buf = ByteArray(64 * 1024)
                         while (true) {
+                            if (Thread.currentThread().isInterrupted) throw InterruptedException("Import cancelled")
                             val count = zip.read(buf)
                             if (count == -1) break
                             if (count == 0) continue
@@ -86,6 +87,7 @@ class OfflineAudioPackStore(private val context: Context) {
                 File(stage, item.filename).inputStream().buffered().use { input ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
+                        if (Thread.currentThread().isInterrupted) throw InterruptedException("Import cancelled")
                         val read = input.read(buf)
                         if (read == -1) break
                         digest.update(buf, 0, read)
@@ -94,14 +96,8 @@ class OfflineAudioPackStore(private val context: Context) {
                 val actual = digest.digest().joinToString("") { "%02x".format(it) }
                 require(actual == item.sha256) { "Audio file hash mismatch: ${item.filename}" }
             }
-            // Swap only after EVERY file was validated. Restore older pack if activation fails.
-            val previous = File(root, "previous_${UUID.randomUUID()}")
-            if (active.exists()) check(active.renameTo(previous)) { "Could not stage current pack for replacement" }
-            if (!stage.renameTo(active)) {
-                if (previous.exists()) previous.renameTo(active)
-                error("Could not activate audio pack")
-            }
-            if (previous.exists()) previous.deleteRecursively()
+            if (Thread.currentThread().isInterrupted) throw InterruptedException("Import cancelled")
+            PackActivation.activate(root, stage)
             return manifest
         } finally {
             if (stage.exists()) stage.deleteRecursively()
