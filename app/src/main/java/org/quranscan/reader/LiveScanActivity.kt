@@ -440,6 +440,8 @@ class LiveScanActivity : ComponentActivity() {
                                 startActivity(Intent(this@LiveScanActivity, RecitationActivity::class.java).apply {
                                     putExtra(RecitationActivity.EXTRA_SURAH, candidate.id.surah)
                                     putExtra(RecitationActivity.EXTRA_AYAH, candidate.id.ayah)
+                                    putExtra(RecitationActivity.EXTRA_SCANNED_TEXT,
+                                        scan.rawUnverifiedText.take(RecitationActivity.MAX_COMPARISON_LENGTH))
                                 })
                             }
                         }

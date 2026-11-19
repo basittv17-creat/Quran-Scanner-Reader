@@ -36,6 +36,8 @@ class RecitationActivity : ComponentActivity() {
     companion object {
         const val EXTRA_SURAH = "selected_surah"
         const val EXTRA_AYAH = "selected_ayah"
+        const val EXTRA_SCANNED_TEXT = "scanned_text_unverified"
+        const val MAX_COMPARISON_LENGTH = 2000
     }
     private val dark = Color.rgb(0, 65, 48)
     private val gold = Color.rgb(216, 173, 86)
@@ -46,6 +48,9 @@ class RecitationActivity : ComponentActivity() {
     private val timer = Handler(Looper.getMainLooper())
     private lateinit var status: TextView
     private lateinit var verseView: TextView
+    private lateinit var verseReference: TextView
+    private lateinit var scanHeading: TextView
+    private lateinit var scannedText: TextView
     private lateinit var surahInput: EditText
     private lateinit var ayahInput: EditText
     private lateinit var player: OfflineAyahPlayer
@@ -176,7 +181,14 @@ class RecitationActivity : ComponentActivity() {
         button("آیت منتخب کریں") { loadSelection() }
         button("◀ پچھلی آیت") { moveAyah(-1) }
         button("اگلی آیت ▶") { moveAyah(1) }
-        verseView = heading("", 25f, gold, true)
+        scanHeading = heading(getString(R.string.scan_comparison_unverified), 15f, gold)
+        scannedText = heading("", 18f, Color.WHITE, true)
+        verseReference = heading("", 16f, gold)
+        verseView = heading("", 25f, gold, true).apply {
+            setBackgroundColor(Color.rgb(12, 83, 65))
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+        }
+        updateScanComparison(null)
         confirmation = CheckBox(this).apply {
             text = getString(R.string.confirm_verse)
             setTextColor(Color.WHITE)
@@ -288,6 +300,8 @@ class RecitationActivity : ComponentActivity() {
         lastHighlighted = -2
         canonicalArabic = null
         timing = null
+        verseReference.text = ""
+        updateScanComparison(null)
         audioSha256 = null
         val token = ++selectionToken
         val s = surahInput.text.toString().toIntOrNull()
@@ -317,7 +331,9 @@ class RecitationActivity : ComponentActivity() {
                     timing = windows
                     audioSha256 = audio?.entries?.get(key)?.sha256
                     chosenWord = restoredWord.coerceIn(0, (windows?.size ?: 1) - 1)
+                    verseReference.text = getString(R.string.canonical_ayah_reference, key.surah, key.ayah)
                     verseView.text = verse
+                    updateScanComparison(key)
                     status.text = (notice?.let { "$it\n" } ?: "") + when {
                         audio?.entries?.get(key) == null -> "No licensed local ayah recording installed for $s:$a."
                         windows == null -> "${audio?.reciter}: ayah audio exists, but no validated word timings for this exact audio/text."
@@ -328,6 +344,15 @@ class RecitationActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun updateScanComparison(key: AudioVerseKey?) {
+        val raw = intent.getStringExtra(EXTRA_SCANNED_TEXT)?.take(MAX_COMPARISON_LENGTH)?.trim()
+        val matches = key != null && key.surah == intent.getIntExtra(EXTRA_SURAH, -1) &&
+            key.ayah == intent.getIntExtra(EXTRA_AYAH, -1) && !raw.isNullOrEmpty()
+        scanHeading.visibility = if (matches) View.VISIBLE else View.GONE
+        scannedText.visibility = scanHeading.visibility
+        scannedText.text = if (matches) raw else ""
     }
 
     private fun showMode() {

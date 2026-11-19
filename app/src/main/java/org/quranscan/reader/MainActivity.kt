@@ -190,10 +190,13 @@ class MainActivity : Activity() {
         label("🔒 Offline by design · No Internet permission · OCR results unverified", 12)
     }
 
-    private fun recitation(surah: Int = 1, ayah: Int = 1) {
+    private fun recitation(surah: Int = 1, ayah: Int = 1, scannedText: String? = null) {
         startActivity(Intent(this, RecitationActivity::class.java).apply {
             putExtra(RecitationActivity.EXTRA_SURAH, surah)
             putExtra(RecitationActivity.EXTRA_AYAH, ayah)
+            scannedText?.let {
+                putExtra(RecitationActivity.EXTRA_SCANNED_TEXT, it.take(RecitationActivity.MAX_COMPARISON_LENGTH))
+            }
         })
     }
 
@@ -355,7 +358,7 @@ class MainActivity : Activity() {
                         label("Potential references ONLY (not verified). Compare visually:", 14, gold)
                         candidates.forEach { c ->
                             label("${c.id.surah}:${c.id.ayah} — ${c.canonicalArabic}", 17, gold, true)
-                            action("Review ${c.id.surah}:${c.id.ayah} · do not auto-play") { recitation(c.id.surah, c.id.ayah) }
+                            action("Review ${c.id.surah}:${c.id.ayah} · do not auto-play") { recitation(c.id.surah, c.id.ayah, ocr.rawUnverifiedText) }
                         }
                     }
                     label(getString(R.string.scan_processing_summary, ocr.variantsChecked, ocr.elapsedMs), 12)

@@ -24,4 +24,6 @@
 %1$s</string>
     <string name="remove_pack">حذف کریں</string>
     <string name="import_busy">درآمد اور جانچ جاری ہے۔ مکمل ہونے تک تلاوت اور آیت کا انتخاب رکا ہوا ہے۔</string>
+    <string name="scan_comparison_unverified">اسکین شدہ عبارت غیر مصدقہ ہے۔ نیچے موجود مکمل آیت سے موازنہ کریں۔</string>
+    <string name="canonical_ayah_reference">مستند آیت %1$d:%2$d</string>
 </resources>

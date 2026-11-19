@@ -22,4 +22,6 @@
     <string name="scan_quality_low_light">The selected area looks dark. Add light and try again.</string>
     <string name="scan_quality_low_detail">The selected area shows little detail. Hold the camera steady, refocus, or select a sharper photo.</string>
     <string name="scan_processing_summary">OCR completed in %2$d ms · %1$d variants checked</string>
+    <string name="scan_comparison_unverified">Unverified scanned text. Compare it with the complete ayah below.</string>
+    <string name="canonical_ayah_reference">Canonical ayah %1$d:%2$d</string>
 </resources>
