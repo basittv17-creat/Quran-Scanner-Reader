@@ -394,7 +394,10 @@ class LiveScanActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         gate.reset()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) startCamera()
+        // Lifecycle ON_START can be dispatched after onStart returns.
+        previewView.post {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) startCamera()
+        }
     }
 
     override fun onDestroy() {

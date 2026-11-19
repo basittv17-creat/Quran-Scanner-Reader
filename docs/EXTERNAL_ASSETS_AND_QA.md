@@ -22,3 +22,16 @@ No assertion is made that every potential provider prohibits use. These sources 
 ## Validation limits
 
 Compilation, resource processing, JVM tests, Python validation and lint do not execute the app on Android. No emulator/device test was run and no APK/AAB was generated. Splash, sidebar, gallery orientation, CameraX lifecycle, WebView, audio focus/interruption, font marks and accessibility need device QA. Target SDK 35 edge-to-edge/insets, large font and narrow-screen layouts need visual review.
+
+## Camera checkpoint acceptance (source added 19 November 2026)
+
+Deferred until separate Android package/device-test authorization:
+
+- Background immediately while CameraX provider is initializing; foreground and confirm preview recovers. Repeat permission grant/denial, rotation and screen locking on API 23 and modern Android.
+- Start a slow OCR capture, background, then return. Old-session text must never replace new results; scanning must recover after the old worker completes.
+- Tap a page to focus/meter. Confirm darker/brighter steps stop at camera-supported limits and unsupported exposure reports a clear message.
+- Pause auto scan, restart the activity and verify pause persists; manual capture must still work. Rapid manual taps must not overlap the analyzer.
+- Confirm still ImageProxy closes before OCR, including conversion exceptions; test camera without three simultaneous output streams.
+- Reticle remains a visual guide for full-frame OCR; selectable crop, blur calibration and representative real-print measurements remain TODO.
+
+Compilation and lint cannot establish these camera runtime outcomes.
