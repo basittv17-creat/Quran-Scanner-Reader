@@ -66,6 +66,27 @@ class RecitationPlaybackTest {
         assertTrue(runCatching { PlaybackRange(0, null, 0).validateDuration(0) }.isFailure)
     }
 
+    @Test fun selectedWordCutoffIncludesExactEndAndSeekOvershoot() {
+        val segment = PlaybackRange(100, 150, 150)
+        segment.validateDuration(150)
+        assertTrue(segment.isSegment)
+        assertFalse(segment.hasReachedEnd(100))
+        assertFalse(segment.hasReachedEnd(149))
+        assertTrue(segment.hasReachedEnd(150))
+        assertTrue(segment.hasReachedEnd(151))
+        val full = PlaybackRange(0, null, 150)
+        assertFalse(full.isSegment)
+        assertFalse(full.hasReachedEnd(150))
+    }
+
+    @Test fun rejectsStartAtDurationAndOversizedOrNegativeTimingWindows() {
+        assertTrue(runCatching { PlaybackRange(150, null, 0).validateDuration(150) }.isFailure)
+        assertTrue(runCatching { PlaybackRange(-1, 150, 0) }.isFailure)
+        assertTrue(runCatching { PlaybackRange(0, null, -1) }.isFailure)
+        assertTrue(runCatching { WordTimingFormat.parseTimeline("1\t0\t900001", 1) }.isFailure)
+        assertTrue(runCatching { WordTimingFormat.parseTimeline("1\t0\t900000", 1) }.isSuccess)
+    }
+
     @Test fun highlightsRespectGapsAndApproximateSeekIntoAnotherWord() {
         val words = WordTimingFormat.parseTimeline("1\t10\t20\n2\t30\t50", 2)
         assertEquals(-1, WordTimingFormat.highlightIndex(words, null, null))

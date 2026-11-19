@@ -33,7 +33,7 @@ import org.quranscan.reader.core.VerseNavigation
 import java.util.concurrent.Executors
 
 /** Native verse + word-following playback. Nothing is verified from OCR alone.
- * Import requires independently reviewed corpus, audio and timing source before activation.
+ * Imported audio and timings require independent listening review.
  */
 class RecitationActivity : ComponentActivity() {
     companion object {
@@ -88,7 +88,7 @@ class RecitationActivity : ComponentActivity() {
 
     private val importAudio = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@registerForActivityResult
-        cancelPlayback()
+        clearPlaybackConfirmation()
         importBusy = true
         status.text = getString(R.string.recitation_check_audio)
         executor.execute {
@@ -107,7 +107,7 @@ class RecitationActivity : ComponentActivity() {
 
     private val importTiming = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@registerForActivityResult
-        cancelPlayback()
+        clearPlaybackConfirmation()
         importBusy = true
         status.text = getString(R.string.recitation_check_timing)
         executor.execute {
@@ -341,6 +341,7 @@ class RecitationActivity : ComponentActivity() {
         }
         val key = AudioVerseKey(s, a)
         activeKey = key
+        chosenWord = restoredWord
         verseView.text = ""
         status.setText(R.string.loading_local_verse)
         // Corpus parsing, manifest reads and timing hashes must not block Android's UI thread.
@@ -425,7 +426,7 @@ class RecitationActivity : ComponentActivity() {
         cancelPlayback()
         chosenWord = index.coerceIn(0, words.lastIndex)
         displayWord(chosenWord)
-        status.text = "Selected word ${chosenWord + 1}/${words.size} — timings may require manual review."
+        status.text = "Selected word ${chosenWord + 1}/${words.size} — timings are user-supplied and require listening review."
     }
 
     private fun playWord() {
@@ -436,7 +437,7 @@ class RecitationActivity : ComponentActivity() {
             return
         }
         requestPlayback(
-            "Preparing word ${chosenWord + 1}; MP3 seek may be approximate.",
+            "Preparing word ${chosenWord + 1}; MP3 seeking is approximate. Timing requires listening review.",
             window.startMs, window.endMs, windows.last().endMs
         )
     }

@@ -32,7 +32,7 @@ class OfflineAyahPlayer(
     private var prepared = false
     private var seeking = false
     private var playWhenReady = false
-    private var segmentEnd: Int? = null
+    private var playbackRange: PlaybackRange? = null
     private var focusRequest: AudioFocusRequest? = null
     private var hasFocus = false
     private var released = false
@@ -50,10 +50,10 @@ class OfflineAyahPlayer(
     private val checkpoint = object : Runnable {
         override fun run() {
             val mp = player ?: return
-            val end = segmentEnd ?: return
-            if (!isPlaying()) return
+            val range = playbackRange ?: return
+            if (!playWhenReady) return
             try {
-                if (mp.currentPosition >= end) {
+                if (range.hasReachedEnd(mp.currentPosition)) {
                     stop()
                     onFinished()
                 } else handler.postDelayed(this, 30)
@@ -66,11 +66,15 @@ class OfflineAyahPlayer(
     fun play(recording: FileDescriptor, startMs: Int = 0, endMs: Int? = null, requiredDurationMs: Int = 0) {
         stop()
         if (released) return
-        val mp = MediaPlayer()
-        player = mp
         try {
             val range = PlaybackRange(startMs, endMs, requiredDurationMs)
-            segmentEnd = endMs
+            if (!requestFocus()) {
+                fail("Audio focus unavailable. Return to this screen and try again.")
+                return
+            }
+            val mp = MediaPlayer()
+            player = mp
+            playbackRange = range
             playWhenReady = true
             mp.setAudioAttributes(attributes)
             mp.setDataSource(recording)
@@ -104,15 +108,14 @@ class OfflineAyahPlayer(
         if (!prepared || seeking || !playWhenReady) return
         try {
             if (!requestFocus()) { fail("Audio focus unavailable. Return to this screen and try again."); return }
-            val end = segmentEnd
-            if (end != null && mp.currentPosition >= end) {
-                stop()
-                onFinished()
+            val range = checkNotNull(playbackRange)
+            if (range.isSegment && range.hasReachedEnd(mp.currentPosition)) {
+                fail("The playback position reached the end of the selected word. MP3 seeking is approximate.")
                 return
             }
             mp.start()
             handler.removeCallbacks(checkpoint)
-            if (segmentEnd != null) handler.post(checkpoint)
+            if (range.isSegment) handler.post(checkpoint)
         } catch (e: Exception) { fail("Unable to resume local audio: ${e.message ?: "unknown error"}") }
     }
 
@@ -159,7 +162,11 @@ class OfflineAyahPlayer(
     fun currentPositionMs(): Int? = if (prepared && !seeking) runCatching { player?.currentPosition }.getOrNull() else null
     fun isPlaying(): Boolean = prepared && !seeking && runCatching { player?.isPlaying == true }.getOrDefault(false)
     fun pause() {
-        playWhenReady = false // Also cancels start if prepare/seek completes after onStop.
+        if (!prepared || seeking) {
+            stop() // A pending prepare or seek must be replayed explicitly.
+            return
+        }
+        playWhenReady = false
         handler.removeCallbacks(checkpoint)
         try {
             if (prepared) player?.takeIf { it.isPlaying }?.pause()
@@ -174,7 +181,7 @@ class OfflineAyahPlayer(
         playWhenReady = false
         prepared = false
         seeking = false
-        segmentEnd = null
+        playbackRange = null
         val old = player
         player = null // Late callbacks from replaced/released players cannot start audio.
         old?.let { runCatching { it.release() } }

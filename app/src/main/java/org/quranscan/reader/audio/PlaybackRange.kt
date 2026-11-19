@@ -11,6 +11,10 @@ internal class PlaybackRange(
         require(startMs >= 0 && (endMs == null || endMs > startMs)) { "Invalid audio segment" }
     }
 
+    val isSegment: Boolean get() = endMs != null
+
+    fun hasReachedEnd(positionMs: Int): Boolean = endMs != null && positionMs >= endMs
+
     fun validateDuration(durationMs: Int) {
         require(requiredDurationMs <= durationMs) { "Word timeline extends beyond this recording" }
         require(startMs < durationMs && (endMs == null || endMs <= durationMs)) {

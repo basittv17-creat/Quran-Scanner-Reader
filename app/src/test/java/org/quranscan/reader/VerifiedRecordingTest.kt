@@ -19,4 +19,15 @@ class VerifiedRecordingTest {
         file.writeText("abd")
         assertTrue(runCatching { VerifiedRecording.open(file, hash).close() }.isFailure)
     }
+
+    @Test fun rejectsTruncatedEmptyAndMissingFiles() {
+        val file = temporary.newFile()
+        val hash = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        file.writeText("ab")
+        assertTrue(runCatching { VerifiedRecording.open(file, hash).close() }.isFailure)
+        file.writeText("")
+        assertTrue(runCatching { VerifiedRecording.open(file, hash).close() }.isFailure)
+        assertTrue(file.delete())
+        assertTrue(runCatching { VerifiedRecording.open(file, hash).close() }.isFailure)
+    }
 }
