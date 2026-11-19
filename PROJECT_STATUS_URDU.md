@@ -17,3 +17,7 @@
 کیمرہ foreground recovery، Tap focus، Exposure controls، Auto Scan preference اور پرانے OCR نتائج کو روکنے کی اصلاحات شامل ہیں۔ Runs 44481527823 اور 44481771624 کامیاب: آٹھ JVM Tests، صفر failures، Lint صفر Errors اور 39 Warnings؛ کوئی APK/AAB نہیں۔ Native Help/Exit، Settings، Insets اور Gallery navigation کی اگلی اصلاحات الگ CI کی منتظر ہیں۔ حقیقی قرآن صفحات، مستند اجازت یافتہ آڈیو، انسانی طور پر جانچے اوقات، علمی جائزہ اور Device QA ابھی باقی ہیں۔ مکمل ایپ کا دعویٰ نہیں۔
 
 Gallery میں OCR سے پہلے منتخب حصے کو Crop کرنے کا سورس شامل ہے۔ Run 44482560224 کامیاب: نو JVM Tests، صفر failures/errors/skips، Lint صفر Errors/40 Warnings۔ آخری follow-up میں Custom View constructor، کم camera still resolution کی درخواست اور concurrent OCR model extraction کی حفاظت شامل ہے؛ اس کی CI الگ ہوگی۔ اسکرین، اشاروں، Memory اور حقیقی OCR accuracy کی فون پر تصدیق باقی ہے۔
+
+## آخری تصدیق شدہ سورس
+
+Commit `5e5506695b8876e4c76ae13d6eb9c26e22d0015a` کی Run 44482901626 کامیاب ہے: Kotlin، Resources، Python checks، نو JVM Tests، صفر failures/errors/skips؛ Lint صفر Errors اور 39 Warnings۔ کوئی APK/AAB نہیں بنا۔ Constructor Warning درست ہے۔ نئے سورس میں Camera lifecycle/focus/exposure، Gallery Crop، Help/Exit، Settings/privacy اور Insets کی اصلاحات شامل ہیں۔ تمام اصل 59 فائلیں اور Corpus محفوظ ہیں۔ Live Camera Crop، Blur calibration، مکمل Audio Pack management/localization اور فون QA ابھی باقی ہیں؛ مستند آڈیو، لفظی اوقات اور حقیقی صفحات کی benchmark جانچ بھی مطلوب ہے۔
