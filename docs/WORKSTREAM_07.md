@@ -18,3 +18,11 @@ Localized the crop preview's existing accessibility description for English and 
 Local checks passed for all 97 English/Urdu string names and positional placeholders, seven Python OCR benchmark metric tests, the source policy, and verbatim corpus provenance for all 6,236 ayat with both pinned hashes retained. Android tasks use the existing source-validation workflow. No APK/AAB generation is authorized.
 
 TalkBack, physical device visual checks, RTL traversal, large font, narrow screens and rotation behavior are **PENDING**. No real-image OCR, scholarly or listening review was performed.
+
+## Verified checkpoint and concurrent changes
+
+Commit `dc06fc14c6fa5ef30763ca389290b91b15163b7a` passed [Actions run 44529237079](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44529237079). Logs confirm Kotlin compilation, resource processing, 29 JVM tests with zero failures, errors or skips, 15 Python OCR metric tests, lint 0 errors / 40 warnings, and no APK/AAB. The run logged SetTextI18n warnings and no missing or extra translation warnings. Five local source-policy tests also passed.
+
+Subsequent commit `5d352d4` localized gallery prompts and camera feedback, candidate labels and some recitation feedback. [44529374633](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44529374633) and [44529532565](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44529532565) failed before Android compilation because the Phase 6 validator expected the old English literal. `d858ead` updated the validator to check the resource call and both locales. Pack-management plurals, remaining activity status strings, screen-reader announcements and short-viewport layouts are still follow-up items. Device and TalkBack QA remain **PENDING**.
+
+[Source ZIP](https://drive.google.com/file/d/1Nvnpz-5exvS4KTVLROU7KDYoOibOpeOY/view) contains the validated `dc06fc1` checkpoint. SHA-256 `f5acef3e54c520fddfd7e1b39cab469890899bdfa8d3c8097e034095dca70a37`. Verified ZIP integrity, both Quran corpus digests and absence of APK/AAB entries. Drive confirmed the file in the existing backup folder and its 1,514,322-byte size.
