@@ -38,7 +38,7 @@ class ScanImageQualityTest {
             when {
                 x == 1 -> 0xff696969.toInt() // Luma 105, exactly 22 below the center.
                 y == 1 -> 0xff6a6a6a.toInt() // Luma 106, only 21 below the center.
-                else -> 0x80000000 // Half-transparent black on paper white has luma 127.
+                else -> 0x80000000.toInt() // Half-transparent black on paper white has luma 127.
             }
         }
         assertEquals(127.0, quality.meanLuma, 0.0)
