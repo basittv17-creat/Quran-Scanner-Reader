@@ -22,6 +22,8 @@ jobs:
           python-version: '3.11'
       - name: Validate Quran project source and timing pack logic
         run: python3 tools/verify_phase8.py
+      - name: Test OCR benchmark metric calculations
+        run: python3 tools/test_ocr_benchmark.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

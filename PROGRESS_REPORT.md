@@ -75,3 +75,11 @@ Source commit: https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/db
 Actions: https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44466055230 — **completed / success**. Kotlin compilation, resources, Python/pure Kotlin checks and source policy passed. **7 JVM tests, 0 failures/errors/skipped; lint 0 errors and 36 warnings. No APK/AAB found.** These final refinements reduced warnings from 43 to 36 without suppression. Remaining warnings concern fixed older dependencies/target API and translation/locale handling; the full issue list is in the Actions report step. No runtime/device/recording-quality certification is implied.
 
 The following commit only updates reports; application source remains the validated db65527 source.
+
+## 2026-11-19 continued development — audit and OCR measurement
+
+Rechecked main at `1835f41fcc42faeae79993cc2597b99f35d564e4`: 10 commits, 71 tracked files; latest Actions run 44466318864 completed successfully. Read the supplied roadmap ZIP; its earlier lint failure has already been fixed in main.
+
+Corpus provenance rerun locally: all 6236 entries match pinned publisher bytes including marks. Added an offline OCR-export evaluator with strict character/word edit rates, exact ordered reference-list recognition accuracy, abstention/wrong-prediction counts, per-printing groups and measured mean/p95 latency. Five synthetic metric unit tests pass locally. Synthetic tests are not Mushaf accuracy evidence. Real legally usable reviewed image exports remain BLOCKED; no accuracy percentage is claimed.
+
+Fixed obsolete Phase 7 validation that still required an empty corpus. CI now tests benchmark calculations in addition to the existing Android and corpus gates. Local environment has no Gradle/kotlinc installation; Android and pure Kotlin checks use GitHub Actions. No APK/AAB tasks were invoked.

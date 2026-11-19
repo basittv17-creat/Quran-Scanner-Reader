@@ -29,7 +29,7 @@ player=(base/'audio/OfflineAyahPlayer.kt').read_text()
 assert all(term in app for term in ['ActivityResultContracts.OpenDocument','playSelected','corpus.isComplete()'])
 assert all(term in store for term in ['ZipInputStream','stage.renameTo(active)','SHA-256','FileOutputStream','1500L'])
 assert 'android.media.MediaPlayer' in player
-assert (root/'app/src/main/assets/quran/verses.jsonl').stat().st_size == 0
+subprocess.run(['python3', str(root/'tools/verify_corpus_provenance.py')], check=True)
 assert (root/'app/src/main/assets/audio/README.txt').exists()
 print('PASS: Phase 7 source, local pack importer, audio player, no INTERNET permission')
 print('NOT RUN: Android APK build, physical playback, religious audio review, full corpus import')
