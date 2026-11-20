@@ -5,7 +5,7 @@
 
 Open the latest successful main-branch run of [Android checks and APK](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/workflows/source-validation.yml), download `quran-scanner-reader-apk` from **Artifacts**, and extract `app-debug.apk`. GitHub wraps the single APK in a ZIP. Main pushes and manual runs on main produce an installable debug-signed APK for testing. Pull requests run the checks before packaging is enabled on main.
 
-The APK includes camera/gallery OCR and the bundled Tanzil text. Authentic recitation and word-by-word playback require a compatible imported audio pack and reviewed timing pack. See [external assets and device QA](docs/EXTERNAL_ASSETS_AND_QA.md) for current validation gaps.
+The APK includes camera/gallery OCR and the bundled Tanzil text. The reader offers normal speed and optional 75% playback for practice. Authentic recitation and word-by-word playback require a compatible imported audio pack and reviewed timing pack. See [external assets and device QA](docs/EXTERNAL_ASSETS_AND_QA.md) for current validation gaps.
 
 ## Audio pack builder hardening — verified 19 November 2026
 

@@ -186,4 +186,5 @@
     <string name="reference_number">%1$d</string>
     <string name="status_with_details">%1$s\n%2$s</string>
     <string name="audio_word_end_reached">Playback reached the end of the selected word. MP3 seeking is approximate.</string>
+    <string name="recitation_slow_playback">Slow playback</string>
 </resources>

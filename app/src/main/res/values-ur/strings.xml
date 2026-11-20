@@ -188,4 +188,5 @@
     <string name="reference_number">%1$d</string>
     <string name="status_with_details">%1$s\n%2$s</string>
     <string name="audio_word_end_reached">آڈیو منتخب لفظ کے آخر تک پہنچ گئی۔ ایم پی تھری میں مقام کا تعین تخمینی ہے۔</string>
+    <string name="recitation_slow_playback">آہستہ تلاوت</string>
 </resources>

@@ -65,6 +65,7 @@ class RecitationActivity : ComponentActivity() {
     private var mode = RecitationMode.FULL_AYAH
     private lateinit var modeLabel: TextView
     private lateinit var confirmation: CheckBox
+    private var slowPlayback = false
     private var selectionToken = 0
     private val playbackGate = RecitationPlaybackGate()
     private var recordingSelection: Pair<String, String>? = null
@@ -223,6 +224,18 @@ class RecitationActivity : ComponentActivity() {
         button(getString(R.string.change_recitation_mode)) {
             setMode(RecitationMode.entries[(mode.ordinal + 1) % RecitationMode.entries.size])
         }
+        slowPlayback = preferences.getBoolean("recitation_slow_playback", false)
+        column.addView(CheckBox(this).apply {
+            setText(R.string.recitation_slow_playback)
+            setTextColor(Color.WHITE)
+            minHeight = dp(48)
+            isChecked = slowPlayback
+            setOnCheckedChangeListener { _, checked ->
+                cancelPlayback()
+                slowPlayback = checked
+                preferences.edit().putBoolean("recitation_slow_playback", checked).apply()
+            }
+        })
         button(getString(R.string.play_selected_mode)) { playPreferred() }
         button(getString(R.string.replay_selected_mode)) { playPreferred() }
         button(getString(R.string.recitation_play_ayah)) { setMode(RecitationMode.FULL_AYAH); playPreferred() }
@@ -526,7 +539,7 @@ class RecitationActivity : ComponentActivity() {
                     }
                     highlightMode = requestedMode.takeUnless { it == RecitationMode.FULL_AYAH }
                     status.text = notice
-                    player.play(recording.fd, startMs, endMs, requiredDurationMs)
+                    player.play(recording.fd, startMs, endMs, requiredDurationMs, slowPlayback)
                 } finally {
                     // MediaPlayer duplicates the descriptor synchronously in setDataSource.
                     runCatching { recording?.close() }

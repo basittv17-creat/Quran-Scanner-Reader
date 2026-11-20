@@ -8,6 +8,7 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.media.PlaybackParams
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -30,6 +31,7 @@ class OfflineAyahPlayer(
     private val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
     private var player: MediaPlayer? = null
+    private var speed = 1f
     private var prepared = false
     private var seeking = false
     private var playWhenReady = false
@@ -64,7 +66,13 @@ class OfflineAyahPlayer(
         }
     }
 
-    fun play(recording: FileDescriptor, startMs: Int = 0, endMs: Int? = null, requiredDurationMs: Int = 0) {
+    fun play(
+        recording: FileDescriptor,
+        startMs: Int = 0,
+        endMs: Int? = null,
+        requiredDurationMs: Int = 0,
+        slowPlayback: Boolean = false
+    ) {
         stop()
         if (released) return
         try {
@@ -76,6 +84,7 @@ class OfflineAyahPlayer(
             val mp = MediaPlayer()
             player = mp
             playbackRange = range
+            speed = if (slowPlayback) 0.75f else 1f
             playWhenReady = true
             mp.setAudioAttributes(attributes)
             mp.setDataSource(recording)
@@ -96,7 +105,11 @@ class OfflineAyahPlayer(
                     prepared = true
                     if (startMs > 0) {
                         seeking = true
-                        mp.seekTo(startMs)
+                        if (Build.VERSION.SDK_INT >= 26) {
+                            mp.seekTo(startMs.toLong(), MediaPlayer.SEEK_CLOSEST)
+                        } else {
+                            mp.seekTo(startMs)
+                        }
                     } else startIfReady()
                 } catch (e: Exception) { fail(R.string.audio_preparation_failed) }
             }
@@ -114,7 +127,12 @@ class OfflineAyahPlayer(
                 fail(R.string.audio_word_end_reached)
                 return
             }
-            mp.start()
+            if (speed == 1f) {
+                mp.start()
+            } else {
+                // Setting a nonzero speed starts a prepared player. Do this only after seek and focus.
+                mp.playbackParams = PlaybackParams().setSpeed(speed).setPitch(1f)
+            }
             handler.removeCallbacks(checkpoint)
             if (range.isSegment) handler.post(checkpoint)
         } catch (e: Exception) { fail(R.string.audio_playback_failed) }
