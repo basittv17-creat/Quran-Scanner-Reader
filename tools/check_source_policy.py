@@ -2,6 +2,7 @@
 """Static build/dependency policy. Does not attest remote dependency bytes."""
 from pathlib import Path
 import re
+import subprocess
 import xml.etree.ElementTree as ET
 ANDROID = '{http://schemas.android.com/apk/res/android}'
 BACKUP_DOMAINS = {
@@ -72,11 +73,20 @@ def main():
         text = path.read_text()
         for action in re.findall(r'^\s*(?:-\s*)?uses:\s*([^\s#]+)', text, re.MULTILINE):
             assert re.fullmatch(r'[\w./-]+@[0-9a-f]{40}', action), (path, action)
-        assert not re.search(r'\b(?:assemble\w*|bundle(?:Debug|Release)|package(?:Debug|Release))\b', text), path
-        assert ':app:testDebugUnitTest' in text
-        assert ':app:lintDebug' in text
-    assert not list(root.rglob('*.apk')) and not list(root.rglob('*.aab'))
-    print('PASS: offline manifest and backup exclusions, fixed dependency versions, pinned Actions, compile/test/lint workflow and no Android packages')
+        package_tasks = re.findall(
+            r'\b(?:assemble\w*|bundle(?:Debug|Release)|package(?:Debug|Release))\b', text
+        )
+        if path.name == 'source-validation.yml':
+            assert package_tasks == ['assembleDebug'] and ':app:assembleDebug' in text, path
+            assert ':app:testDebugUnitTest' in text
+            assert ':app:lintDebug' in text
+        else:
+            assert not package_tasks, path
+    tracked_packages = subprocess.check_output(
+        ['git', 'ls-files', '-z', '--', '*.apk', '*.aab'], cwd=root
+    )
+    assert not tracked_packages, 'Android packages must be distributed as CI artifacts'
+    print('PASS: offline manifest, backup exclusions, pinned dependencies and Actions, and APK-only CI')
 
 
 if __name__ == '__main__':

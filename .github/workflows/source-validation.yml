@@ -1,4 +1,4 @@
-name: Android source compile and checks (NO APK / AAB)
+name: Android checks and APK
 
 on:
   push:
@@ -40,15 +40,31 @@ jobs:
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
           gradle-version: '8.10.2'
-      - name: Compile Kotlin and process resources ONLY
+      - name: Compile Kotlin, process resources, test and lint
         run: gradle --no-daemon --stacktrace :app:compileDebugKotlin :app:processDebugResources :app:testDebugUnitTest :app:lintDebug
       - name: Report unit tests and lint findings
         if: always()
         run: python3 tools/report_ci_results.py
-      - name: Prove no APK or AAB was generated
-        if: always()
+      - name: Build a single Android debug APK
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Verify APK output and signature
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
-          if find . -type f \( -name '*.apk' -o -name '*.aab' \) | grep .; then
-            echo 'Unexpected Android package generated'; exit 1
-          fi
-          echo 'No APK/AAB artifacts found.'
+          mapfile -t packages < <(find app/build/outputs -type f \( -name '*.apk' -o -name '*.aab' \))
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test "${#packages[@]}" -eq 1
+          test "${packages[0]}" = "$apk"
+          test -s "$apk"
+          sdk="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          apksigner="$(find "$sdk/build-tools" -mindepth 2 -maxdepth 2 -name apksigner | sort -V | tail -n 1)"
+          test -x "$apksigner"
+          "$apksigner" verify "$apk"
+      - name: Upload Quran Scanner Reader APK
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: quran-scanner-reader-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          compression-level: 0

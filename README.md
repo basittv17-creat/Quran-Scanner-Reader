@@ -1,5 +1,12 @@
 # Quran Scan Reader — Phase 9 (native Android / offline-first development source)
 
+
+## Android APK
+
+Open the latest successful main-branch run of [Android checks and APK](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/workflows/source-validation.yml), download `quran-scanner-reader-apk` from **Artifacts**, and extract `app-debug.apk`. GitHub wraps the single APK in a ZIP. Main pushes and manual runs on main produce an installable debug-signed APK for testing. Pull requests run the checks before packaging is enabled on main.
+
+The APK includes camera/gallery OCR and the bundled Tanzil text. Authentic recitation and word-by-word playback require a compatible imported audio pack and reviewed timing pack. See [external assets and device QA](docs/EXTERNAL_ASSETS_AND_QA.md) for current validation gaps.
+
 ## Audio pack builder hardening — verified 19 November 2026
 
 [PR #2](https://github.com/basittv17-creat/Quran-Scanner-Reader/pull/2) was merged as [`f197db1`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/f197db1a16ac518613958d7104004aa749d556b8). [GitHub Actions 44580417501](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44580417501) completed **success** on the merged `main` commit: 64 JVM tests (zero failures/errors/skips), 22 Python OCR metric tests, Android Kotlin/resources compilation and source policy passed; Android lint reported **0 errors / 13 warnings**; the CI confirmed **no APK/AAB generated**.
@@ -12,7 +19,7 @@ See [the current development handoff](docs/NEXT_STEPS.md) for source checkpoints
 **بِسْمِ اللّٰهِ الرَّحْمَٰنِ الرَّحِيمِ**
 
 This Android Studio **source** project is not a complete verified Quran reader and
-**has not been built as an APK**. The intended runtime has no INTERNET permission.
+uses an offline runtime without INTERNET permission.
 
 ## Current verified continuation - 19 November 2026
 
@@ -55,7 +62,7 @@ These are source and CI results, not device certification. Real-page OCR benchma
 
 Android Studio recommended; JDK 17; Android SDK 35; minSdk 23 (Android 6+);
 AGP 8.7.3; Kotlin 2.0.21; CameraX 1.4.2; Tesseract4Android 4.9.0.
-**No Gradle wrapper included**; GitHub Actions provisions Gradle 8.10.2. Compilation/resources have passed; no APK/AAB was built.
+**No Gradle wrapper included**; GitHub Actions provisions Gradle 8.10.2. See the Android APK section for current build instructions.
 
 Pure-code checks (require Python 3, `kotlinc`, Java):
 
@@ -87,7 +94,7 @@ Any audio/word timing pack is user supplied: its metadata and checksums do NOT
 independently establish authenticity, tajweed accuracy, licensing, or timings.
 
 
-## Phase 9: GitHub-ready / build-only CI
+## Phase 9 history: source-only CI
 
 Native green/gold home actions updated and GitHub Actions workflow added in
 `.github/workflows/source-validation.yml`. The workflow only runs Python checks,
