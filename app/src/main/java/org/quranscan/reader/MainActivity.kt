@@ -124,7 +124,11 @@ class MainActivity : Activity() {
             setPadding(22, 26, 22, 22)
         }
         drawer = DrawerLayout(this)
-        val content = ScrollView(this).apply { isFillViewport = true; addView(root) }
+        val content = ScrollView(this).apply {
+            isFillViewport = true
+            addView(root)
+            applyReaderInsets()
+        }
         drawer.addView(content, DrawerLayout.LayoutParams(-1, -1))
         val side = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -147,10 +151,12 @@ class MainActivity : Activity() {
         item(getString(R.string.nav_about)) { about() }
         item(getString(R.string.nav_exit)) { finishAndRemoveTask() }
         item(getString(R.string.nav_preview)) { preview() }
-        drawer.addView(ScrollView(this).apply { addView(side) }, DrawerLayout.LayoutParams(
+        drawer.addView(ScrollView(this).apply {
+            addView(side)
+            applyReaderInsets()
+        }, DrawerLayout.LayoutParams(
             (280 * resources.displayMetrics.density).toInt(), -1, Gravity.START))
         setContentView(drawer)
-        drawer.applyReaderInsets()
         root.addView(Button(this).apply {
             text = getString(R.string.nav_menu); contentDescription = getString(R.string.nav_menu_description)
             isAllCaps = false
@@ -159,15 +165,17 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(-2, -2))
         label(title, 25, gold)
     }
-    private fun label(value: String, size: Int = 17, color: Int = Color.WHITE, arabic: Boolean = false) {
-        root.addView(TextView(this).apply {
+    private fun label(value: String, size: Int = 17, color: Int = Color.WHITE, arabic: Boolean = false): TextView {
+        val view = TextView(this).apply {
             text = value
             textSize = if (arabic) maxOf(size, arabicSize).toFloat() else size.toFloat()
             setTextColor(color)
             gravity = Gravity.CENTER
             setPadding(6, 12, 6, 12)
             if (arabic) textDirection = View.TEXT_DIRECTION_RTL
-        }, LinearLayout.LayoutParams(-1, -2))
+        }
+        root.addView(view, LinearLayout.LayoutParams(-1, -2))
+        return view
     }
     private fun action(text: String, onClick: () -> Unit) {
         root.addView(Button(this).apply {
@@ -358,7 +366,7 @@ class MainActivity : Activity() {
         galleryBusy = true
         val token = scanToken
         val scanProfile = profile
-        label(getString(R.string.gallery_ocr_in_progress), 17, gold)
+        val scanning = label(getString(R.string.gallery_ocr_in_progress), 17, gold)
         label(getString(R.string.gallery_local_profile, getString(profileLabel(scanProfile))), 13)
         val progress = ProgressBar(this)
         root.addView(progress)
@@ -373,7 +381,7 @@ class MainActivity : Activity() {
                             selection.width, selection.height)
                     }
                     if (token != scanToken) return@execute
-                    val ocr = OfflineArabicOcr(applicationContext).read(input, scanProfile)
+                    val ocr = OfflineArabicOcr(applicationContext).read(input, scanProfile, selectedRegion = cropToSelection)
                     if (token != scanToken) return@execute
                     val db = OfflineCorpus(applicationContext)
                     val complete = db.isComplete()
@@ -389,6 +397,7 @@ class MainActivity : Activity() {
                 if (token != scanToken || isFinishing || isDestroyed) return@runOnUiThread
                 galleryBusy = false
                 root.removeView(progress)
+                root.removeView(scanning)
                 response.onSuccess { (ocr, candidates, complete) ->
                     if (ocr.rawUnverifiedText.isBlank()) {
                         label(getString(R.string.gallery_no_arabic), 15)
@@ -406,8 +415,10 @@ class MainActivity : Activity() {
                         root.addView(raw, LinearLayout.LayoutParams(-1, -2))
                     }
                     if (!complete) label(getString(R.string.gallery_no_corpus), 14, gold)
-                    else if (candidates.isEmpty()) label(getString(R.string.gallery_no_candidate), 14)
-                    else {
+                    else if (candidates.isEmpty()) {
+                        label(getString(R.string.gallery_no_candidate), 14)
+                        action(getString(R.string.nav_recitation)) { recitation() }
+                    } else {
                         label(getString(R.string.gallery_possible_matches), 14, gold)
                         candidates.forEach { c ->
                             val reference = getString(R.string.scan_candidate_reference, c.id.surah, c.id.ayah)

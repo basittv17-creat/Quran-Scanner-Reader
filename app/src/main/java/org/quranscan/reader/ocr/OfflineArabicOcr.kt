@@ -26,7 +26,7 @@ class OfflineArabicOcr(private val context: Context) {
         val quality: ScanImageQuality?
     )
 
-    fun read(bitmap: Bitmap, profile: Profile): Scan {
+    fun read(bitmap: Bitmap, profile: Profile, selectedRegion: Boolean = false): Scan {
         val startedAt = SystemClock.elapsedRealtime()
         val quality = if (bitmap.width > 1 && bitmap.height > 1) {
             ScanImageQuality.measure(bitmap.width, bitmap.height, bitmap::getPixel)
@@ -49,8 +49,8 @@ class OfflineArabicOcr(private val context: Context) {
                 if (Thread.currentThread().isInterrupted) throw InterruptedException("OCR cancelled")
             }
 
-            fun tryModes(input: Bitmap): Boolean {
-                for (mode in modes) {
+            fun tryModes(input: Bitmap, pageModes: List<Int> = modes): Boolean {
+                for (mode in pageModes) {
                     checkCancellation()
                     engine.setPageSegMode(mode)
                     engine.setImage(input)
@@ -78,6 +78,15 @@ class OfflineArabicOcr(private val context: Context) {
                     tryModes(prepared)
                 } finally {
                     prepared.recycle()
+                }
+            }
+            if (selectedRegion && bitmap.width.toLong() >= 3L * bitmap.height && quality?.lowLight == true) {
+                checkCancellation()
+                val line = ImagePreprocessor.prepareDarkLine(bitmap)
+                try {
+                    tryModes(line, listOf(TessBaseAPI.PageSegMode.PSM_RAW_LINE, TessBaseAPI.PageSegMode.PSM_SINGLE_LINE))
+                } finally {
+                    line.recycle()
                 }
             }
             return Scan(
