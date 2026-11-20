@@ -2,6 +2,7 @@ package org.quranscan.reader.ocr
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.os.SystemClock
 import com.googlecode.tesseract.android.TessBaseAPI
 import org.quranscan.reader.core.ImagePreprocessor
@@ -26,7 +27,12 @@ class OfflineArabicOcr(private val context: Context) {
         val quality: ScanImageQuality?
     )
 
-    fun read(bitmap: Bitmap, profile: Profile, selectedRegion: Boolean = false): Scan {
+    fun read(
+        bitmap: Bitmap,
+        profile: Profile,
+        selectedRegion: Boolean = false,
+        tryRotations: Boolean = false
+    ): Scan {
         val startedAt = SystemClock.elapsedRealtime()
         val quality = if (bitmap.width > 1 && bitmap.height > 1) {
             ScanImageQuality.measure(bitmap.width, bitmap.height, bitmap::getPixel)
@@ -71,22 +77,38 @@ class OfflineArabicOcr(private val context: Context) {
                 return false
             }
 
-            if (!tryModes(bitmap)) {
+            fun tryOrientation(input: Bitmap) {
+                if (tryModes(input)) return
                 checkCancellation()
-                val prepared = ImagePreprocessor.normalize(bitmap)
+                val prepared = ImagePreprocessor.normalize(input)
                 try {
                     tryModes(prepared)
                 } finally {
                     prepared.recycle()
                 }
+                if (selectedRegion && input.width.toLong() >= 3L * input.height && quality?.lowLight == true) {
+                    checkCancellation()
+                    val line = ImagePreprocessor.prepareDarkLine(input)
+                    try {
+                        tryModes(line, listOf(TessBaseAPI.PageSegMode.PSM_RAW_LINE, TessBaseAPI.PageSegMode.PSM_SINGLE_LINE))
+                    } finally {
+                        line.recycle()
+                    }
+                }
             }
-            if (selectedRegion && bitmap.width.toLong() >= 3L * bitmap.height && quality?.lowLight == true) {
-                checkCancellation()
-                val line = ImagePreprocessor.prepareDarkLine(bitmap)
-                try {
-                    tryModes(line, listOf(TessBaseAPI.PageSegMode.PSM_RAW_LINE, TessBaseAPI.PageSegMode.PSM_SINGLE_LINE))
-                } finally {
-                    line.recycle()
+
+            tryOrientation(bitmap)
+            if (tryRotations && bestScore < 6500) {
+                for (angle in listOf(90f, 180f, 270f)) {
+                    checkCancellation()
+                    val rotation = Matrix().apply { postRotate(angle) }
+                    val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, rotation, false)
+                    try {
+                        tryOrientation(rotated)
+                    } finally {
+                        if (rotated !== bitmap) rotated.recycle()
+                    }
+                    if (bestScore >= 6500) break
                 }
             }
             return Scan(

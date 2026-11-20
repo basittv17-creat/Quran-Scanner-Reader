@@ -45,6 +45,8 @@ import org.quranscan.reader.core.ImageDecodeLimits
 import org.quranscan.reader.core.CameraSessionGate
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.core.VerseCandidates
+import org.quranscan.reader.core.ConservativeVerseMatcher
+import org.quranscan.reader.core.RecognitionResult
 import org.quranscan.reader.ocr.OfflineArabicOcr
 import java.util.concurrent.Executor
 import java.util.concurrent.RejectedExecutionException
@@ -564,10 +566,24 @@ class LiveScanActivity : ComponentActivity() {
             if (!isCurrentScan(claim, region)) return
             val corpus = OfflineCorpus(applicationContext)
             val complete = corpus.isComplete()
-            val candidates = if (complete)
-                VerseCandidates.suggest(scan.rawUnverifiedText, corpus.asMap()) else emptyList()
+            val exact = if (complete) ConservativeVerseMatcher(corpus.asMap()).match(scan.rawUnverifiedText)
+                as? RecognitionResult.VerifiedCandidate else null
+            val candidates = if (exact != null) {
+                listOf(VerseCandidates.Suggestion(exact.match.id, exact.match.canonicalArabic, 1f))
+            } else if (complete) VerseCandidates.suggest(scan.rawUnverifiedText, corpus.asMap()) else emptyList()
             runOnUiThread {
                 if (!isCurrentScan(claim, region) || isFinishing || isDestroyed) return@runOnUiThread
+                if (exact != null && hasWindowFocus()) {
+                    paused.set(true)
+                    togglePause.setText(R.string.live_resume_auto)
+                    startActivity(Intent(this, RecitationActivity::class.java).apply {
+                        putExtra(RecitationActivity.EXTRA_SURAH, exact.match.id.surah)
+                        putExtra(RecitationActivity.EXTRA_AYAH, exact.match.id.ayah)
+                        putExtra(RecitationActivity.EXTRA_AUTO_PLAY, true)
+                        putExtra(RecitationActivity.EXTRA_SCANNED_TEXT,
+                            scan.rawUnverifiedText.take(RecitationActivity.MAX_COMPARISON_LENGTH))
+                    })
+                }
                 reviewContainer.removeAllViews()
                 if (complete && candidates.isNotEmpty()) {
                     candidates.take(3).forEach { candidate ->

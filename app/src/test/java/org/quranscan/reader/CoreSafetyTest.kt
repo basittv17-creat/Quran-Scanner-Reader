@@ -71,6 +71,22 @@ class CoreSafetyTest {
         assertTrue(VerseCandidates.suggest("اختبار", corpus).isEmpty())
         assertTrue(VerseCandidates.suggest("اختبار بيانات تجريبية فقط", corpus - VerseId(1,1)).isEmpty())
     }
+    @Test fun uniqueFullVerseMatchesAndKeepsCanonicalMarks() {
+        val corpus = linkedMapOf<VerseId, String>()
+        QuranVerseCounts.counts.forEachIndexed { surah, count ->
+            (1..count).forEach { ayah -> corpus[VerseId(surah + 1, ayah)] = "اختبار بيانات تجريبية فقط" }
+        }
+        val id = VerseId(1, 5)
+        val canonical = "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ"
+        corpus[id] = canonical
+        val matcher = ConservativeVerseMatcher(corpus)
+        val match = matcher.match("إياك نعبد وإياك نستعين") as RecognitionResult.VerifiedCandidate
+        assertEquals(id, match.match.id)
+        assertEquals(canonical, match.match.canonicalArabic)
+        assertTrue(matcher.match("إياك نعبد وإياك") is RecognitionResult.Uncertain)
+        assertTrue(matcher.match("إياكنعبد وإياك نستعين") is RecognitionResult.Uncertain)
+    }
+
     @Test fun scanGateHandlesManualScanAndClockReset() {
         val gate = CameraScanGate(100)
         assertTrue(gate.shouldScan(1000))

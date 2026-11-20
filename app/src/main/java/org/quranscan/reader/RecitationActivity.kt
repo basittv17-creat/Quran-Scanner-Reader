@@ -17,6 +17,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.widget.doAfterTextChanged
 import org.quranscan.reader.audio.AudioVerseKey
@@ -42,6 +43,7 @@ class RecitationActivity : ComponentActivity() {
     companion object {
         const val EXTRA_SURAH = "selected_surah"
         const val EXTRA_AYAH = "selected_ayah"
+        const val EXTRA_AUTO_PLAY = "auto_play_exact_scan"
         const val EXTRA_SCANNED_TEXT = "scanned_text_unverified"
         const val MAX_COMPARISON_LENGTH = 2000
     }
@@ -150,7 +152,10 @@ class RecitationActivity : ComponentActivity() {
         val a = savedInstanceState?.getInt("ayah") ?: intent.getIntExtra(EXTRA_AYAH, 1)
         val initial = if (QuranVerseCounts.valid(s, a)) AudioVerseKey(s, a) else activeKey
         showReference(initial.surah, initial.ayah)
-        loadSelection(savedInstanceState?.getInt("chosen_word") ?: 0)
+        loadSelection(
+            savedInstanceState?.getInt("chosen_word") ?: 0,
+            autoPlay = savedInstanceState == null && intent.getBooleanExtra(EXTRA_AUTO_PLAY, false)
+        )
     }
 
     private fun buildScreen() {
@@ -209,6 +214,9 @@ class RecitationActivity : ComponentActivity() {
             setBackgroundColor(Color.rgb(12, 83, 65))
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
+        status = heading(getString(R.string.recitation_check_resources), 14f, gold).apply {
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
         updateScanComparison(null)
         confirmation = CheckBox(this).apply {
             text = getString(R.string.confirm_verse)
@@ -259,9 +267,6 @@ class RecitationActivity : ComponentActivity() {
         button(getString(R.string.recitation_import_timing)) {
             cancelPlayback()
             importTiming.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
-        }
-        status = heading(getString(R.string.recitation_check_resources), 14f, gold).apply {
-            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
         heading(getString(R.string.recitation_checks_notice), 13f)
         button(getString(R.string.nav_home)) { finish() }
@@ -360,7 +365,7 @@ class RecitationActivity : ComponentActivity() {
         val windows: List<TimedWord>?
     )
 
-    private fun loadSelection(restoredWord: Int = 0, notice: String? = null) {
+    private fun loadSelection(restoredWord: Int = 0, notice: String? = null, autoPlay: Boolean = false) {
         clearPlaybackConfirmation()
         confirmation.isEnabled = false
         lastHighlighted = -2
@@ -413,6 +418,12 @@ class RecitationActivity : ComponentActivity() {
                             windows.size, bidi.unicodeWrap(reciter.orEmpty()), windows.size)
                     }
                     status.text = if (notice == null) details else getString(R.string.status_with_details, notice, details)
+                    if (autoPlay && selection != null && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                        mode = if (windows == null) RecitationMode.FULL_AYAH else RecitationMode.FOLLOW_WORDS
+                        showMode()
+                        confirmation.isChecked = true
+                        playPreferred()
+                    }
                 }.onFailure {
                     status.setText(R.string.recitation_load_failed)
                 }

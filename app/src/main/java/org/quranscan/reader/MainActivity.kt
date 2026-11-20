@@ -18,6 +18,8 @@ import org.quranscan.reader.core.CropBounds
 import org.quranscan.reader.core.GalleryImageState
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.core.VerseCandidates
+import org.quranscan.reader.core.ConservativeVerseMatcher
+import org.quranscan.reader.core.RecognitionResult
 import org.quranscan.reader.core.VerseId
 import org.quranscan.reader.ocr.OfflineArabicOcr
 import java.util.concurrent.Executors
@@ -241,10 +243,11 @@ class MainActivity : Activity() {
         label(getString(R.string.home_privacy), 12)
     }
 
-    private fun recitation(surah: Int = 1, ayah: Int = 1, scannedText: String? = null) {
+    private fun recitation(surah: Int = 1, ayah: Int = 1, scannedText: String? = null, autoPlay: Boolean = false) {
         startActivity(Intent(this, RecitationActivity::class.java).apply {
             putExtra(RecitationActivity.EXTRA_SURAH, surah)
             putExtra(RecitationActivity.EXTRA_AYAH, ayah)
+            putExtra(RecitationActivity.EXTRA_AUTO_PLAY, autoPlay)
             scannedText?.let {
                 putExtra(RecitationActivity.EXTRA_SCANNED_TEXT, it.take(RecitationActivity.MAX_COMPARISON_LENGTH))
             }
@@ -381,13 +384,18 @@ class MainActivity : Activity() {
                             selection.width, selection.height)
                     }
                     if (token != scanToken) return@execute
-                    val ocr = OfflineArabicOcr(applicationContext).read(input, scanProfile, selectedRegion = cropToSelection)
+                    val ocr = OfflineArabicOcr(applicationContext).read(input, scanProfile, selectedRegion = cropToSelection, tryRotations = true)
                     if (token != scanToken) return@execute
                     val db = OfflineCorpus(applicationContext)
                     val complete = db.isComplete()
-                    val candidates = if (complete) VerseCandidates.suggest(ocr.rawUnverifiedText, db.asMap())
-                        else emptyList()
-                    Triple(ocr, candidates, complete)
+                    val match = if (complete) ConservativeVerseMatcher(db.asMap()).match(ocr.rawUnverifiedText)
+                        else null
+                    val candidates = if (match is RecognitionResult.VerifiedCandidate) {
+                        listOf(VerseCandidates.Suggestion(match.match.id, match.match.canonicalArabic, 1f))
+                    } else if (complete) {
+                        VerseCandidates.suggest(ocr.rawUnverifiedText, db.asMap())
+                    } else emptyList()
+                    Triple(ocr, candidates, (match is RecognitionResult.VerifiedCandidate) to complete)
                 }
             } finally {
                 if (input !== bitmap) input.recycle()
@@ -398,7 +406,12 @@ class MainActivity : Activity() {
                 galleryBusy = false
                 root.removeView(progress)
                 root.removeView(scanning)
-                response.onSuccess { (ocr, candidates, complete) ->
+                response.onSuccess { (ocr, candidates, recognition) ->
+                    val (exactMatch, complete) = recognition
+                    if (exactMatch && hasWindowFocus()) {
+                        val id = candidates.single().id
+                        recitation(id.surah, id.ayah, ocr.rawUnverifiedText, autoPlay = true)
+                    }
                     if (ocr.rawUnverifiedText.isBlank()) {
                         label(getString(R.string.gallery_no_arabic), 15)
                     } else {

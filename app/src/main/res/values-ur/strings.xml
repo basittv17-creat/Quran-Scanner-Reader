@@ -28,7 +28,7 @@
     <string name="remove_pack">حذف کریں</string>
     <string name="import_busy">درآمد اور جانچ جاری ہے۔ مکمل ہونے تک تلاوت اور آیت کا انتخاب رکا ہوا ہے۔</string>
     <string name="scan_comparison_unverified">اسکین شدہ عبارت غیر مصدقہ ہے۔ نیچے موجود مکمل آیت سے موازنہ کریں۔</string>
-    <string name="canonical_ayah_reference">مستند آیت %1$d:%2$d</string>
+    <string name="canonical_ayah_reference">سورت %1$d · آیت %2$d</string>
     <string name="nav_home">ہوم</string>
     <string name="nav_camera">براہِ راست قرآن اسکین</string>
     <string name="nav_gallery">قرآن کی تصویر منتخب کریں</string>
