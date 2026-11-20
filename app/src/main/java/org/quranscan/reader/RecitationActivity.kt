@@ -43,6 +43,8 @@ class RecitationActivity : ComponentActivity() {
     companion object {
         const val EXTRA_SURAH = "selected_surah"
         const val EXTRA_AYAH = "selected_ayah"
+        const val EXTRA_FIRST_WORD = "scan_first_word"
+        const val EXTRA_WORD_COUNT = "scan_word_count"
         const val EXTRA_AUTO_PLAY = "auto_play_exact_scan"
         const val EXTRA_SCANNED_TEXT = "scanned_text_unverified"
         const val MAX_COMPARISON_LENGTH = 2000
@@ -151,9 +153,10 @@ class RecitationActivity : ComponentActivity() {
         val s = savedInstanceState?.getInt("surah") ?: intent.getIntExtra(EXTRA_SURAH, 1)
         val a = savedInstanceState?.getInt("ayah") ?: intent.getIntExtra(EXTRA_AYAH, 1)
         val initial = if (QuranVerseCounts.valid(s, a)) AudioVerseKey(s, a) else activeKey
+        val scannedWord = intent.getIntExtra(EXTRA_FIRST_WORD, -1).coerceAtLeast(0)
         showReference(initial.surah, initial.ayah)
         loadSelection(
-            savedInstanceState?.getInt("chosen_word") ?: 0,
+            savedInstanceState?.getInt("chosen_word") ?: scannedWord,
             autoPlay = savedInstanceState == null && intent.getBooleanExtra(EXTRA_AUTO_PLAY, false)
         )
     }
@@ -251,6 +254,9 @@ class RecitationActivity : ComponentActivity() {
         button(getString(R.string.recitation_previous_word)) { selectWord(chosenWord - 1) }
         button(getString(R.string.recitation_next_word)) { selectWord(chosenWord + 1) }
         button(getString(R.string.recitation_play_word)) { setMode(RecitationMode.SELECTED_WORD); playPreferred() }
+        if (intent.getIntExtra(EXTRA_WORD_COUNT, 0) > 0) {
+            button(getString(R.string.recitation_play_scan_phrase)) { playScannedPhrase() }
+        }
         button(getString(R.string.recitation_pause)) {
             playbackGate.cancelRequest()
             player.pause()
@@ -493,6 +499,26 @@ class RecitationActivity : ComponentActivity() {
         )
     }
 
+    private fun playScannedPhrase() {
+        if (!playbackGate.canPlay) { status.setText(R.string.confirm_before_play); return }
+        val first = intent.getIntExtra(EXTRA_FIRST_WORD, -1)
+        val count = intent.getIntExtra(EXTRA_WORD_COUNT, 0)
+        val windows = timing
+        if (activeKey.surah != intent.getIntExtra(EXTRA_SURAH, -1) ||
+            activeKey.ayah != intent.getIntExtra(EXTRA_AYAH, -1) ||
+            windows == null || first !in windows.indices || count !in 1..(windows.size - first)) {
+            status.setText(R.string.recitation_no_exact_timings)
+            return
+        }
+        requestPlayback(
+            getString(R.string.recitation_preparing_follow),
+            windows[first].startMs,
+            windows[first + count - 1].endMs,
+            windows.last().endMs,
+            playbackMode = RecitationMode.FOLLOW_WORDS
+        )
+    }
+
     private fun cancelPlayback() {
         playbackGate.cancelRequest()
         highlightMode = null
@@ -510,7 +536,10 @@ class RecitationActivity : ComponentActivity() {
         cancelPlayback()
     }
 
-    private fun requestPlayback(notice: String, startMs: Int = 0, endMs: Int? = null, requiredDurationMs: Int = 0) {
+    private fun requestPlayback(
+        notice: String, startMs: Int = 0, endMs: Int? = null, requiredDurationMs: Int = 0,
+        playbackMode: RecitationMode = mode
+    ) {
         val selection = recordingSelection
         if (selection == null) {
             status.setText(R.string.recitation_no_audio)
@@ -520,7 +549,6 @@ class RecitationActivity : ComponentActivity() {
         val request = playbackGate.beginRequest() ?: return
         val (packId, expectedSha) = selection
         val key = activeKey
-        val requestedMode = mode
         status.setText(R.string.recitation_verifying_audio)
         executor.execute {
             val verified = runCatching {
@@ -548,7 +576,7 @@ class RecitationActivity : ComponentActivity() {
                         status.setText(R.string.recitation_recording_check_failed)
                         return@runOnUiThread
                     }
-                    highlightMode = requestedMode.takeUnless { it == RecitationMode.FULL_AYAH }
+                    highlightMode = playbackMode.takeUnless { it == RecitationMode.FULL_AYAH }
                     status.text = notice
                     player.play(recording.fd, startMs, endMs, requiredDurationMs, slowPlayback)
                 } finally {

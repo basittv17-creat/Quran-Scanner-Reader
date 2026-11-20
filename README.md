@@ -7,6 +7,9 @@ Open the latest successful main-branch run of [Android checks and APK](https://g
 
 The APK includes camera/gallery OCR and the bundled Tanzil text. The reader offers normal speed and optional 75% playback for practice. Authentic recitation and word-by-word playback require a compatible imported audio pack and reviewed timing pack. See [external assets and device QA](docs/EXTERNAL_ASSETS_AND_QA.md) for current validation gaps. Gallery and camera can start recitation automatically from a unique full-ayah match when its local recording is installed. Possible matches still require manual review. The gallery retries sideways or upside-down images when the initial OCR confidence is low.
 
+For mixed-language images, the scanner searches the Arabic-script portions for contiguous matches in the Quran. It shows candidate surah, ayah and word positions, highlights the matched words in the canonical text, and plays the selected range after confirmation when matching local audio and word timings are installed.
+
+
 ## Audio pack builder hardening — verified 19 November 2026
 
 [PR #2](https://github.com/basittv17-creat/Quran-Scanner-Reader/pull/2) was merged as [`f197db1`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/f197db1a16ac518613958d7104004aa749d556b8). [GitHub Actions 44580417501](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44580417501) completed **success** on the merged `main` commit: 64 JVM tests (zero failures/errors/skips), 22 Python OCR metric tests, Android Kotlin/resources compilation and source policy passed; Android lint reported **0 errors / 13 warnings**; the CI confirmed **no APK/AAB generated**.

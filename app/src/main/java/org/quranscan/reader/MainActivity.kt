@@ -17,6 +17,7 @@ import androidx.core.view.GravityCompat
 import org.quranscan.reader.core.CropBounds
 import org.quranscan.reader.core.GalleryImageState
 import org.quranscan.reader.core.OfflineCorpus
+import org.quranscan.reader.audio.WordHighlightText
 import org.quranscan.reader.core.VerseCandidates
 import org.quranscan.reader.core.ConservativeVerseMatcher
 import org.quranscan.reader.core.RecognitionResult
@@ -243,11 +244,13 @@ class MainActivity : Activity() {
         label(getString(R.string.home_privacy), 12)
     }
 
-    private fun recitation(surah: Int = 1, ayah: Int = 1, scannedText: String? = null, autoPlay: Boolean = false) {
+    private fun recitation(surah: Int = 1, ayah: Int = 1, scannedText: String? = null, autoPlay: Boolean = false, firstWord: Int = -1, wordCount: Int = 0) {
         startActivity(Intent(this, RecitationActivity::class.java).apply {
             putExtra(RecitationActivity.EXTRA_SURAH, surah)
             putExtra(RecitationActivity.EXTRA_AYAH, ayah)
             putExtra(RecitationActivity.EXTRA_AUTO_PLAY, autoPlay)
+            putExtra(RecitationActivity.EXTRA_FIRST_WORD, firstWord)
+            putExtra(RecitationActivity.EXTRA_WORD_COUNT, wordCount)
             scannedText?.let {
                 putExtra(RecitationActivity.EXTRA_SCANNED_TEXT, it.take(RecitationActivity.MAX_COMPARISON_LENGTH))
             }
@@ -393,7 +396,7 @@ class MainActivity : Activity() {
                     val candidates = if (match is RecognitionResult.VerifiedCandidate) {
                         listOf(VerseCandidates.Suggestion(match.match.id, match.match.canonicalArabic, 1f))
                     } else if (complete) {
-                        VerseCandidates.suggest(ocr.rawUnverifiedText, db.asMap())
+                        VerseCandidates.suggest(ocr.rawUnverifiedText + "\n" + ocr.sparseText, db.asMap())
                     } else emptyList()
                     Triple(ocr, candidates, (match is RecognitionResult.VerifiedCandidate) to complete)
                 }
@@ -412,12 +415,13 @@ class MainActivity : Activity() {
                         val id = candidates.single().id
                         recitation(id.surah, id.ayah, ocr.rawUnverifiedText, autoPlay = true)
                     }
-                    if (ocr.rawUnverifiedText.isBlank()) {
+                    val scannedText = ocr.rawUnverifiedText.ifBlank { ocr.sparseText }
+                    if (scannedText.isBlank()) {
                         label(getString(R.string.gallery_no_arabic), 15)
                     } else {
                         label(getString(R.string.gallery_ocr_unverified), 15, gold)
                         val raw = TextView(this).apply {
-                            text = ocr.rawUnverifiedText.take(2000)
+                            text = scannedText.take(2000)
                             textSize = 21f
                             setTextColor(Color.WHITE)
                             textDirection = View.TEXT_DIRECTION_RTL
@@ -434,10 +438,15 @@ class MainActivity : Activity() {
                     } else {
                         label(getString(R.string.gallery_possible_matches), 14, gold)
                         candidates.forEach { c ->
-                            val reference = getString(R.string.scan_candidate_reference, c.id.surah, c.id.ayah)
+                            val reference = candidateReference(c)
                             label(reference, 15, gold)
-                            label(c.canonicalArabic, 17, gold, true)
-                            action(getString(R.string.scan_review_candidate, reference)) { recitation(c.id.surah, c.id.ayah, ocr.rawUnverifiedText) }
+                            label(c.canonicalArabic, 17, gold, true).apply {
+                                text = WordHighlightText.decorate(c.canonicalArabic, c.firstWord, c.wordCount)
+                            }
+                            action(getString(R.string.scan_review_candidate, reference)) {
+                                recitation(c.id.surah, c.id.ayah, scannedText,
+                                    firstWord = c.firstWord, wordCount = c.wordCount)
+                            }
                         }
                     }
                     label(resources.getQuantityString(R.plurals.scan_processing_summary, ocr.variantsChecked,

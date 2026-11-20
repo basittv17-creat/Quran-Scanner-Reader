@@ -2,62 +2,77 @@ package org.quranscan.reader.core
 
 import java.text.Normalizer
 
-/**
- * Indexless, conservative Quran verse suggestion logic for a phase-5 prototype.
- * Raw OCR can be wrong: these suggestions are NEVER verification, endorsements,
- * or a license to automatically read aloud. Candidate Arabic must come only
- * from the trusted, nonempty canonical corpus, NOT from this matcher.
- */
+/** Finds contiguous Quran word matches for review while preserving canonical text and positions. */
 object VerseCandidates {
-    data class Suggestion(val id: VerseId, val canonicalArabic: String, val tokenCoverage: Float)
+    data class Suggestion(
+        val id: VerseId,
+        val canonicalArabic: String,
+        val tokenCoverage: Float,
+        val firstWord: Int = -1,
+        val wordCount: Int = 0
+    )
 
     private val marks = Regex("[\\u064B-\\u065F\\u0670\\u06D6-\\u06ED\\u0640]")
-    private val punctuation = Regex("[^\\p{IsArabic} ]")
+    private val nonArabic = Regex("[^\\p{IsArabic} \\t]")
+    private val whitespace = Regex("\\s+")
+    private val arabicWord = Regex("[\\p{IsArabic}&&\\p{L}]+")
 
-    /** Normalization is used ONLY to compare OCR with unchanged Quran reference text. */
-    fun normalizedWords(text: String): List<String> = Normalizer.normalize(text, Normalizer.Form.NFKC)
+    private fun normalize(text: String): String = Normalizer.normalize(text, Normalizer.Form.NFKC)
         .replace(marks, "")
         .replace('ٱ', 'ا').replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
         .replace('ى', 'ي').replace('ی', 'ي').replace('ک', 'ك')
-        .replace(punctuation, " ")
-        .trim().split(Regex("\\s+"))
-        .filter { it.length >= 2 }
 
-    /**
-     * Only show suggestions where the OCR contains a run of consecutive words
-     * from ONE verse. Require >= 4 words and >= 75% of the verse, at most 3
-     * possibilities, and always require user confirmation. Short verses excluded
-     * rather than guessed. This is deliberately conservative, not an accuracy guarantee.
-     */
+    fun normalizedWords(text: String): List<String> = arabicWord.findAll(normalize(text))
+        .map { it.value }.filter { it.length >= 2 }.toList()
+
     fun suggest(rawOcr: String, corpus: Map<VerseId, String>, limit: Int = 3): List<Suggestion> {
-        if (rawOcr.length !in 10..20000 || corpus.size != 6236) return emptyList()
-        val words = normalizedWords(rawOcr)
-        if (words.size < 4) return emptyList()
-        val windows = words.windowed(4).map { it.joinToString("|") }.toSet()
-        return corpus.mapNotNull { (id, arabic) ->
-            val canon = normalizedWords(arabic)
-            if (canon.size < 4) return@mapNotNull null
-            val cwindows = canon.windowed(4).map { it.joinToString("|") }
-            if (cwindows.none { it in windows }) return@mapNotNull null
-            // Measure how many consecutive canonical words appear in OCR.
-            val maxRun = longestContiguousRun(words, canon)
-            val coverage = maxRun.toFloat() / canon.size
-            if (maxRun >= 4 && coverage >= 0.75f) Suggestion(id, arabic, coverage) else null
-        }.sortedWith(compareByDescending<Suggestion> { it.tokenCoverage }.thenByDescending { it.canonicalArabic.length })
-            .take(limit.coerceIn(1, 5))
-    }
-
-    private fun longestContiguousRun(a: List<String>, b: List<String>): Int {
-        var longest = 0
-        var previous = IntArray(b.size + 1)
-        for (word in a) {
-            val current = IntArray(b.size + 1)
-            for (j in b.indices) if (word == b[j]) {
-                current[j+1] = previous[j] + 1
-                if (current[j+1] > longest) longest = current[j+1]
+        if (rawOcr.length !in 1..20001 || corpus.size != 6236) return emptyList()
+        // Keep boundaries between scripts, punctuation and lines so separate snippets cannot join.
+        val runs = normalize(rawOcr).replace(nonArabic, "|").split('|').asSequence()
+            .map { piece -> whitespace.split(piece.trim()).filter { arabicWord.matches(it) } }
+            .filter { it.isNotEmpty() }
+            .take(128)
+            .toList()
+        val positions = mutableMapOf<String, MutableList<Pair<List<String>, Int>>>()
+        for (run in runs) {
+            for (i in 0 until minOf(run.size, 512)) {
+                val hits = positions.getOrPut(run[i]) { mutableListOf() }
+                if (hits.size < 32) hits.add(run to i)
             }
-            previous = current
         }
-        return longest
+        if (positions.isEmpty()) return emptyList()
+
+        val maximum = limit.coerceIn(1, 5)
+        val results = mutableListOf<Suggestion>()
+        var longest = 0
+        var occurrences = 0
+        for ((id, arabic) in corpus) {
+            // This is the same whitespace boundary used by word-timing files.
+            val canonicalWords = whitespace.split(arabic).map { word ->
+                val normalized = normalize(word)
+                arabicWord.findAll(normalized).joinToString("") { it.value }
+            }
+            for ((start, word) in canonicalWords.withIndex()) {
+                var best = 0
+                for ((run, index) in positions[word].orEmpty()) {
+                    var count = 1
+                    while (start + count < canonicalWords.size && index + count < run.size &&
+                        canonicalWords[start + count] == run[index + count]) count++
+                    best = maxOf(best, count)
+                }
+                if (best == 0 || best < longest || (best == 1 && word.length < 4)) continue
+                if (best > longest) {
+                    longest = best
+                    results.clear()
+                    occurrences = 0
+                }
+                occurrences++
+                if (results.size < maximum) {
+                    results.add(Suggestion(id, arabic, best.toFloat() / canonicalWords.size, start, best))
+                }
+            }
+        }
+        // A common isolated word has too many possible locations to present as a useful result.
+        return if (longest == 1 && occurrences > maximum) emptyList() else results
     }
 }

@@ -24,7 +24,8 @@ class OfflineArabicOcr(private val context: Context) {
         val variantsChecked: Int,
         // OCR pipeline wall time, including diagnostics, model preparation and per-variant cleanup.
         val elapsedMs: Long,
-        val quality: ScanImageQuality?
+        val quality: ScanImageQuality?,
+        val sparseText: String
     )
 
     fun read(
@@ -50,6 +51,7 @@ class OfflineArabicOcr(private val context: Context) {
             var bestText = ""
             var bestScore = -1
             var count = 0
+            var sparseText = ""
 
             fun checkCancellation() {
                 if (Thread.currentThread().isInterrupted) throw InterruptedException("OCR cancelled")
@@ -111,9 +113,17 @@ class OfflineArabicOcr(private val context: Context) {
                     if (bestScore >= 6500) break
                 }
             }
+            if (selectedRegion || bestScore < 8300) {
+                checkCancellation()
+                engine.setPageSegMode(TessBaseAPI.PageSegMode.PSM_SPARSE_TEXT)
+                engine.setImage(bitmap)
+                sparseText = engine.getUTF8Text().orEmpty().trim().take(10000)
+                count++
+                engine.clear()
+            }
             return Scan(
                 bestText.take(10000), profile, count,
-                SystemClock.elapsedRealtime() - startedAt, quality
+                SystemClock.elapsedRealtime() - startedAt, quality, sparseText
             )
         } finally {
             engine.recycle()

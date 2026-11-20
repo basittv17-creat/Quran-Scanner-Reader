@@ -189,4 +189,7 @@
     <string name="status_with_details">%1$s\n%2$s</string>
     <string name="audio_word_end_reached">آڈیو منتخب لفظ کے آخر تک پہنچ گئی۔ ایم پی تھری میں مقام کا تعین تخمینی ہے۔</string>
     <string name="recitation_slow_playback">آہستہ تلاوت</string>
+    <string name="scan_word_reference">سورت %1$d · آیت %2$d · لفظ %3$d</string>
+    <string name="scan_words_reference">سورت %1$d · آیت %2$d · الفاظ %3$d–%4$d</string>
+    <string name="recitation_play_scan_phrase">ملنے والے الفاظ سنیں</string>
 </resources>

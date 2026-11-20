@@ -187,4 +187,7 @@
     <string name="status_with_details">%1$s\n%2$s</string>
     <string name="audio_word_end_reached">Playback reached the end of the selected word. MP3 seeking is approximate.</string>
     <string name="recitation_slow_playback">Slow playback</string>
+    <string name="scan_word_reference">Surah %1$d · Ayah %2$d · Word %3$d</string>
+    <string name="scan_words_reference">Surah %1$d · Ayah %2$d · Words %3$d–%4$d</string>
+    <string name="recitation_play_scan_phrase">Play matched words</string>
 </resources>

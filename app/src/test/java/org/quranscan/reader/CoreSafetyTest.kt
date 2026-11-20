@@ -87,6 +87,26 @@ class CoreSafetyTest {
         assertTrue(matcher.match("إياكنعبد وإياك نستعين") is RecognitionResult.Uncertain)
     }
 
+    @Test fun mixedScriptScanFindsCanonicalWordPositionsWithoutJoiningAcrossLanguages() {
+        val corpus = linkedMapOf<VerseId, String>()
+        QuranVerseCounts.counts.forEachIndexed { surah, count ->
+            (1..count).forEach { ayah -> corpus[VerseId(surah + 1, ayah)] = "اختبار بيانات تجريبية فقط" }
+        }
+        val id = VerseId(1, 5)
+        val canonical = "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ"
+        corpus[id] = canonical
+        val phrase = VerseCandidates.suggest("हिन्दी نعبد وإياك English", corpus).single()
+        assertEquals(id, phrase.id)
+        assertEquals(canonical, phrase.canonicalArabic)
+        assertEquals(1, phrase.firstWord)
+        assertEquals(2, phrase.wordCount)
+        val single = VerseCandidates.suggest("हिन्दी نستعين English", corpus).single()
+        assertEquals(3, single.firstWord)
+        assertEquals(1, single.wordCount)
+        assertTrue(VerseCandidates.suggest("نعبد English وإياك", corpus).none { it.wordCount > 1 })
+        assertTrue(VerseCandidates.suggest("نعبد\nوإياك", corpus).none { it.wordCount > 1 })
+    }
+
     @Test fun scanGateHandlesManualScanAndClockReset() {
         val gate = CameraScanGate(100)
         assertTrue(gate.shouldScan(1000))

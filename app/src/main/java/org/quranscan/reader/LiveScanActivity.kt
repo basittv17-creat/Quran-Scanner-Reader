@@ -44,6 +44,7 @@ import org.quranscan.reader.core.LiveScanRegion
 import org.quranscan.reader.core.ImageDecodeLimits
 import org.quranscan.reader.core.CameraSessionGate
 import org.quranscan.reader.core.OfflineCorpus
+import org.quranscan.reader.audio.WordHighlightText
 import org.quranscan.reader.core.VerseCandidates
 import org.quranscan.reader.core.ConservativeVerseMatcher
 import org.quranscan.reader.core.RecognitionResult
@@ -570,7 +571,7 @@ class LiveScanActivity : ComponentActivity() {
                 as? RecognitionResult.VerifiedCandidate else null
             val candidates = if (exact != null) {
                 listOf(VerseCandidates.Suggestion(exact.match.id, exact.match.canonicalArabic, 1f))
-            } else if (complete) VerseCandidates.suggest(scan.rawUnverifiedText, corpus.asMap()) else emptyList()
+            } else if (complete) VerseCandidates.suggest(scan.rawUnverifiedText + "\n" + scan.sparseText, corpus.asMap()) else emptyList()
             runOnUiThread {
                 if (!isCurrentScan(claim, region) || isFinishing || isDestroyed) return@runOnUiThread
                 if (exact != null && hasWindowFocus()) {
@@ -588,7 +589,7 @@ class LiveScanActivity : ComponentActivity() {
                 if (complete && candidates.isNotEmpty()) {
                     candidates.take(3).forEach { candidate ->
                         val btn = Button(this).apply {
-                            val reference = getString(R.string.scan_candidate_reference, candidate.id.surah, candidate.id.ayah)
+                            val reference = candidateReference(candidate)
                             text = getString(R.string.scan_review_candidate, reference)
                             isAllCaps = false
                             minHeight = dp(48)
@@ -596,13 +597,17 @@ class LiveScanActivity : ComponentActivity() {
                                 startActivity(Intent(this@LiveScanActivity, RecitationActivity::class.java).apply {
                                     putExtra(RecitationActivity.EXTRA_SURAH, candidate.id.surah)
                                     putExtra(RecitationActivity.EXTRA_AYAH, candidate.id.ayah)
+                                    putExtra(RecitationActivity.EXTRA_FIRST_WORD, candidate.firstWord)
+                                    putExtra(RecitationActivity.EXTRA_WORD_COUNT, candidate.wordCount)
                                     putExtra(RecitationActivity.EXTRA_SCANNED_TEXT,
-                                        scan.rawUnverifiedText.take(RecitationActivity.MAX_COMPARISON_LENGTH))
+                                        scan.rawUnverifiedText.ifBlank { scan.sparseText }
+                                            .take(RecitationActivity.MAX_COMPARISON_LENGTH))
                                 })
                             }
                         }
                         reviewContainer.addView(TextView(this).apply {
-                            text = candidate.canonicalArabic
+                            text = WordHighlightText.decorate(
+                                candidate.canonicalArabic, candidate.firstWord, candidate.wordCount)
                             textDirection = View.TEXT_DIRECTION_RTL
                             textSize = 19f
                             setTextColor(Color.WHITE)
@@ -610,7 +615,7 @@ class LiveScanActivity : ComponentActivity() {
                         reviewContainer.addView(btn, LinearLayout.LayoutParams(-1, -2))
                     }
                 }
-                val result = scan.rawUnverifiedText.trim()
+                val result = scan.rawUnverifiedText.ifBlank { scan.sparseText }.trim()
                 rawOutput.text = result.take(1800)
                 rawOutput.visibility = if (result.isEmpty()) View.GONE else View.VISIBLE
                 resultGuidance.text = if (result.isEmpty()) getString(R.string.live_empty_result)
