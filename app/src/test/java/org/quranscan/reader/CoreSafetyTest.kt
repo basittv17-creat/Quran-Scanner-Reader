@@ -107,6 +107,23 @@ class CoreSafetyTest {
         assertTrue(VerseCandidates.suggest("نعبد\nوإياك", corpus).none { it.wordCount > 1 })
     }
 
+    @Test fun noisyImageReadingFindsCanonicalVerseForReviewAndRejectsTies() {
+        val corpus = linkedMapOf<VerseId, String>()
+        QuranVerseCounts.counts.forEachIndexed { surah, count ->
+            (1..count).forEach { ayah -> corpus[VerseId(surah + 1, ayah)] = "اختبار بيانات تجريبية فقط" }
+        }
+        val scanned = "إِيّاك نعبَّن وَإيَاك نُسْتعد"
+        val id = VerseId(1, 5)
+        val canonical = "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ"
+        corpus[id] = canonical
+        val result = VerseCandidates.suggestNoisyLine(listOf(scanned), corpus)
+        assertEquals(id, result?.id)
+        assertEquals(canonical, result?.canonicalArabic)
+        assertTrue(ConservativeVerseMatcher(corpus).match(scanned) is RecognitionResult.Uncertain)
+        corpus[VerseId(1, 6)] = canonical
+        assertEquals(null, VerseCandidates.suggestNoisyLine(listOf(scanned), corpus))
+    }
+
     @Test fun scanGateHandlesManualScanAndClockReset() {
         val gate = CameraScanGate(100)
         assertTrue(gate.shouldScan(1000))

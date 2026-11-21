@@ -25,7 +25,8 @@ class OfflineArabicOcr(private val context: Context) {
         // OCR pipeline wall time, including diagnostics, model preparation and per-variant cleanup.
         val elapsedMs: Long,
         val quality: ScanImageQuality?,
-        val sparseText: String
+        val sparseText: String,
+        val lineAlternatives: List<String>
     )
 
     fun read(
@@ -52,17 +53,21 @@ class OfflineArabicOcr(private val context: Context) {
             var bestScore = -1
             var count = 0
             var sparseText = ""
+            val lineAlternatives = linkedSetOf<String>()
 
             fun checkCancellation() {
                 if (Thread.currentThread().isInterrupted) throw InterruptedException("OCR cancelled")
             }
 
-            fun tryModes(input: Bitmap, pageModes: List<Int> = modes): Boolean {
+            fun tryModes(input: Bitmap, pageModes: List<Int> = modes, captureLines: Boolean = false): Boolean {
                 for (mode in pageModes) {
                     checkCancellation()
                     engine.setPageSegMode(mode)
                     engine.setImage(input)
                     val result = engine.getUTF8Text().orEmpty().trim()
+                    if (captureLines && result.isNotBlank() && lineAlternatives.size < 12) {
+                        lineAlternatives.add(result.take(600))
+                    }
                     val confidence = engine.meanConfidence().coerceIn(0, 100)
                     // Confidence is only OCR confidence, NOT Quran verification.
                     val arabicCount = result.count { it in '\u0621'..'\u064A' }
@@ -88,13 +93,24 @@ class OfflineArabicOcr(private val context: Context) {
                 } finally {
                     prepared.recycle()
                 }
-                if (selectedRegion && input.width.toLong() >= 3L * input.height && quality?.lowLight == true) {
+                if (selectedRegion && input.width.toLong() >= 3L * input.height) {
                     checkCancellation()
-                    val line = ImagePreprocessor.prepareDarkLine(input)
+                    val invert = quality?.lowLight == true
+                    val padded = ImagePreprocessor.prepareLine(input, invert)
                     try {
-                        tryModes(line, listOf(TessBaseAPI.PageSegMode.PSM_RAW_LINE, TessBaseAPI.PageSegMode.PSM_SINGLE_LINE))
+                        tryModes(padded, listOf(TessBaseAPI.PageSegMode.PSM_SINGLE_BLOCK,
+                            TessBaseAPI.PageSegMode.PSM_SINGLE_LINE, TessBaseAPI.PageSegMode.PSM_RAW_LINE),
+                            captureLines = true)
                     } finally {
-                        line.recycle()
+                        padded.recycle()
+                    }
+                    if (invert) {
+                        val binary = ImagePreprocessor.prepareLine(input, invert = true, binary = true)
+                        try {
+                            tryModes(binary, listOf(TessBaseAPI.PageSegMode.PSM_RAW_LINE), captureLines = true)
+                        } finally {
+                            binary.recycle()
+                        }
                     }
                 }
             }
@@ -123,7 +139,7 @@ class OfflineArabicOcr(private val context: Context) {
             }
             return Scan(
                 bestText.take(10000), profile, count,
-                SystemClock.elapsedRealtime() - startedAt, quality, sparseText
+                SystemClock.elapsedRealtime() - startedAt, quality, sparseText, lineAlternatives.toList()
             )
         } finally {
             engine.recycle()

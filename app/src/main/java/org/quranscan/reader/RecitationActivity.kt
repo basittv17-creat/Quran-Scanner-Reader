@@ -220,6 +220,10 @@ class RecitationActivity : ComponentActivity() {
         status = heading(getString(R.string.recitation_check_resources), 14f, gold).apply {
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
+        button(getString(R.string.recitation_import_audio)) {
+            cancelPlayback()
+            importAudio.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+        }
         updateScanComparison(null)
         confirmation = CheckBox(this).apply {
             text = getString(R.string.confirm_verse)
@@ -264,10 +268,6 @@ class RecitationActivity : ComponentActivity() {
         }
         button(getString(R.string.recitation_resume)) { if (playbackGate.canPlay) player.resume() else status.setText(R.string.confirm_before_play) }
         button(getString(R.string.recitation_stop)) { cancelPlayback() }
-        button(getString(R.string.recitation_import_audio)) {
-            cancelPlayback()
-            importAudio.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
-        }
         button(getString(R.string.choose_audio_pack)) { managePacks(false) }
         button(getString(R.string.remove_audio_pack)) { managePacks(true) }
         button(getString(R.string.recitation_import_timing)) {

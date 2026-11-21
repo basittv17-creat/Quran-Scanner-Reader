@@ -397,6 +397,7 @@ class MainActivity : Activity() {
                         listOf(VerseCandidates.Suggestion(match.match.id, match.match.canonicalArabic, 1f))
                     } else if (complete) {
                         VerseCandidates.suggest(ocr.rawUnverifiedText + "\n" + ocr.sparseText, db.asMap())
+                            .ifEmpty { listOfNotNull(VerseCandidates.suggestNoisyLine(ocr.lineAlternatives, db.asMap())) }
                     } else emptyList()
                     Triple(ocr, candidates, (match is RecognitionResult.VerifiedCandidate) to complete)
                 }

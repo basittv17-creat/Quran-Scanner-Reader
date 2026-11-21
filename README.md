@@ -7,6 +7,8 @@ Open the latest successful main-branch run of [Android checks and APK](https://g
 
 The APK includes camera/gallery OCR and the bundled Tanzil text. The reader offers normal speed and optional 75% playback for practice. Authentic recitation and word-by-word playback require a compatible imported audio pack and reviewed timing pack. See [external assets and device QA](docs/EXTERNAL_ASSETS_AND_QA.md) for current validation gaps. Gallery and camera can start recitation automatically from a unique full-ayah match when its local recording is installed. Possible matches still require manual review. The gallery retries sideways or upside-down images when the initial OCR confidence is low.
 
+Narrow camera or gallery crops receive an enlarged, padded OCR pass. A close short-line match can offer a full canonical ayah for review. Autoplay still requires a unique full-text match.
+
 For mixed-language images, the scanner searches the Arabic-script portions for contiguous matches in the Quran. It shows candidate surah, ayah and word positions, highlights the matched words in the canonical text, and plays the selected range after confirmation when matching local audio and word timings are installed.
 
 

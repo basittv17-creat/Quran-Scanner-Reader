@@ -563,7 +563,7 @@ class LiveScanActivity : ComponentActivity() {
         try {
             if (!isCurrentScan(claim, region)) return
             postStatus(getString(R.string.live_processing), claim.session, region)
-            val scan = OfflineArabicOcr(applicationContext).read(bitmap, profile)
+            val scan = OfflineArabicOcr(applicationContext).read(bitmap, profile, selectedRegion = true)
             if (!isCurrentScan(claim, region)) return
             val corpus = OfflineCorpus(applicationContext)
             val complete = corpus.isComplete()
@@ -571,7 +571,8 @@ class LiveScanActivity : ComponentActivity() {
                 as? RecognitionResult.VerifiedCandidate else null
             val candidates = if (exact != null) {
                 listOf(VerseCandidates.Suggestion(exact.match.id, exact.match.canonicalArabic, 1f))
-            } else if (complete) VerseCandidates.suggest(scan.rawUnverifiedText + "\n" + scan.sparseText, corpus.asMap()) else emptyList()
+            } else if (complete) VerseCandidates.suggest(scan.rawUnverifiedText + "\n" + scan.sparseText, corpus.asMap())
+                            .ifEmpty { listOfNotNull(VerseCandidates.suggestNoisyLine(scan.lineAlternatives, corpus.asMap())) } else emptyList()
             runOnUiThread {
                 if (!isCurrentScan(claim, region) || isFinishing || isDestroyed) return@runOnUiThread
                 if (exact != null && hasWindowFocus()) {

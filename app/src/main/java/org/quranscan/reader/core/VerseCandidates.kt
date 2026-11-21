@@ -75,4 +75,57 @@ object VerseCandidates {
         // A common isolated word has too many possible locations to present as a useful result.
         return if (longest == 1 && occurrences > maximum) emptyList() else results
     }
+
+    /** Recover a review-only full-verse candidate from a short noisy OCR line. */
+    fun suggestNoisyLine(lines: List<String>, corpus: Map<VerseId, String>): Suggestion? {
+        if (corpus.size != 6236) return null
+        val readings = lines.asSequence().flatMap { it.lineSequence() }
+            .map { normalizedWords(it) }.filter { it.size in 3..9 }
+            .map { it.joinToString("") }.filter { it.length in 16..36 }.distinct().take(8).toList()
+        if (readings.isEmpty()) return null
+        val keys = corpus.mapNotNull { (id, arabic) ->
+            val key = normalizedWords(arabic).joinToString("")
+            if (key.length in 11..41) Suggestion(id, arabic, 0f) to key else null
+        }
+        var best: Suggestion? = null
+        for (reading in readings) {
+            // Keep a two-edit lead over any other verse. A near match is never eligible for autoplay.
+            val maxEdits = minOf(4, reading.length / 5)
+            var closest = maxEdits + 2
+            var runnerUp = maxEdits + 2
+            var candidate: Suggestion? = null
+            for ((possible, key) in keys) {
+                if (kotlin.math.abs(key.length - reading.length) > closest + 1) continue
+                val edits = editDistance(reading, key)
+                if (edits < closest) {
+                    runnerUp = closest
+                    closest = edits
+                    candidate = possible
+                } else if (edits < runnerUp) {
+                    runnerUp = edits
+                }
+            }
+            if (candidate != null && closest <= maxEdits && runnerUp - closest >= 2) {
+                if (best != null && best.id != candidate.id) return null
+                best = candidate
+            }
+        }
+        return best
+    }
+
+    private fun editDistance(a: String, b: String): Int {
+        var previous = IntArray(b.length + 1) { it }
+        var current = IntArray(b.length + 1)
+        for ((i, letter) in a.withIndex()) {
+            current[0] = i + 1
+            for (j in b.indices) {
+                val substitution = previous[j] + if (letter == b[j]) 0 else 1
+                current[j + 1] = minOf(current[j] + 1, previous[j + 1] + 1, substitution)
+            }
+            val completed = current
+            current = previous
+            previous = completed
+        }
+        return previous.last()
+    }
 }
