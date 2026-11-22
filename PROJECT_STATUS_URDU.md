@@ -1,4 +1,13 @@
-# تازہ تصدیق شدہ ترقیاتی حیثیت — 19 نومبر 2026
+# تازہ تصدیق شدہ ترقیاتی حیثیت — 22 نومبر 2026
+
+## 22 نومبر 2026 — خودکار اسکین اور آیت کی شناخت
+
+تازہ Source-only `main` Commit [`e7ab8b6`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/e7ab8b661d06f8d469b8722950f99618b895348e)، اور [Actions 45021739029](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/45021739029) **کامیاب**: 72 JVM ٹیسٹ، 22 Python OCR ٹیسٹ، Kotlin/Resources، اصل 6,236 آیات اور Digest Checks پاس، Lint 0 غلطیاں / 14 تنبیہات؛ آخری Source-only Run میں **کوئی APK/AAB نہیں بنی**۔
+
+فون کی تصویر/اسکرین شاٹ منتخب کرتے ہی خودکار آف لائن اسکین، اور Live/Gallery میں پورے صفحے کی متعدد مکمل آیات کا مستند متن/حوالہ دکھانے کی سہولت شامل ہے۔ واحد، طویل، واضح اور یکتا مکمل آیت پر Reader خود کھل سکتا ہے؛ آڈیو صرف اسی آیت کی موجود اور SHA-Verified مقامی ریکارڈنگ پر چلتی ہے۔ غیر واضح/متعدد نتائج میں صارف سے انتخاب لیا جاتا ہے۔ مکمل ہدایات [Master Workflow](docs/AUTOMATIC_QURAN_SCAN_REQUIREMENTS_2026-11-22.md) میں موجود ہیں۔
+
+**ابھی نامکمل:** پاکستانی 15 لائن/سعودی مدنی قرآنی صفحات کی حقیقی OCR Accuracy، مستند اجازت یافتہ آڈیو، تصدیق شدہ Word Timings، اہل علم کی جانچ اور فون/ایمولیٹر QA۔ پرانے GitHub Workflow میں APK بنانے کے Steps موجود تھے؛ ان کو تازہ `main` سے ہٹا دیا گیا، تاہم پہلے سے چلنے والے Runs نے پرانے Workflow کے تحت APK artifacts بنائے۔ ان پرانے نتائج کو نئی Source-only پابندی کی کامیابی نہ سمجھیں۔
+
 
 ## تازہ حفاظتی Milestone — 19 نومبر 2026
 

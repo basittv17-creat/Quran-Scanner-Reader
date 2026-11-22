@@ -1,5 +1,14 @@
 # Quran Scanner Reader — source delivery report
 
+## Auto-scan and page recognition checkpoint — 22 November 2026
+
+Source-only main: [`e7ab8b6`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/e7ab8b661d06f8d469b8722950f99618b895348e); [Actions 45021739029](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/45021739029) **success**. The log reports **72 JVM tests** (including five new full-page matcher tests), **22 Python OCR metric tests**, Kotlin compile/resources, 6,236 Quran verse/source digest checks, **lint 0 errors / 14 warnings** and **no APK/AAB generated in this final run**.
+
+User-facing source changes: gallery images/screenshots now automatically start offline full-image OCR after selection; users can go Back to crop/retry. Live/gallery scan flows match complete canonical verses embedded in multi-verse page OCR and offer up to eight ordered candidates with intact publisher diacritics. A single dominant unique exact result can launch the native recitation screen and play **only installed locally SHA-verified verse audio**. Uncertain/multiple/noisy readings remain review-only. Existing corpus, security and audio gating are retained. See [user-approved product workflow](docs/AUTOMATIC_QURAN_SCAN_REQUIREMENTS_2026-11-22.md).
+
+**Not yet a complete or hardware-validated Quran scanner:** generic Arabic OCR still lacks independent accuracy benchmarks on Pakistani 15-line and Madani real printed pages; no licensed full-reciter pack or human-reviewed word timings are bundled; scholarly review, actual-device rendering, audio and camera QA remain outstanding. Earlier runs inherited a repository workflow that built APK artifacts; the workflow and source policy were restored to **no packaging** in `e7ab8b6`. The final run had zero artifacts. Do not treat source CI as a guarantee of correct recognition or recitation.
+
+
 ## Audio pack builder hardening — verified 19 November 2026
 
 [PR #2](https://github.com/basittv17-creat/Quran-Scanner-Reader/pull/2) was merged as [`f197db1`](https://github.com/basittv17-creat/Quran-Scanner-Reader/commit/f197db1a16ac518613958d7104004aa749d556b8). [GitHub Actions 44580417501](https://github.com/basittv17-creat/Quran-Scanner-Reader/actions/runs/44580417501) completed **success** on the merged `main` commit: 64 JVM tests (zero failures/errors/skips), 22 Python OCR metric tests, Android Kotlin/resources compilation and source policy passed; Android lint reported **0 errors / 13 warnings**; the CI confirmed **no APK/AAB generated**.
