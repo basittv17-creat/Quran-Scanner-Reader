@@ -62,7 +62,7 @@
     <string name="settings_model">Bundled Arabic OCR model is tessdata_fast (ara.traineddata), licensed under Apache 2.0.</string>
     <string name="nav_back">Back</string>
     <string name="help_camera">Allow camera access, hold the page steady in good light, and tap to focus. Drag over the preview to select a scan area. Supported cameras offer exposure controls. You can scan a photo manually while automatic scanning is paused.</string>
-    <string name="help_gallery">Choose a sharp image on your device. The scanner reads rotation from EXIF. Drag to select the text or scan the whole image.</string>
+    <string name="help_gallery">Choose a Quran photo or screenshot to start offline scanning automatically. From results, use Back to crop a smaller region and retry. EXIF rotation is handled locally.</string>
     <string name="help_review">Every scan result needs review. Compare the complete canonical verse with your printed page and check its surah and ayah before pressing Play. Playback always requires your action.</string>
     <string name="help_recitation">Import a legally obtained ZIP of ayah MP3 files. Word playback also requires reviewed timings for the exact recordings and text. Playback or highlighting is unavailable when required files are missing or mismatched.</string>
     <string name="help_validation">Testing on physical Android devices and accuracy evaluation on Pakistani and Madani pages are pending. The Arabic text uses Tanzil Uthmani v1.1.</string>

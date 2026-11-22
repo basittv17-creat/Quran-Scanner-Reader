@@ -46,6 +46,7 @@ import org.quranscan.reader.core.CameraSessionGate
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.audio.WordHighlightText
 import org.quranscan.reader.core.VerseCandidates
+import org.quranscan.reader.core.QuranPageVerseMatcher
 import org.quranscan.reader.core.ConservativeVerseMatcher
 import org.quranscan.reader.core.RecognitionResult
 import org.quranscan.reader.ocr.OfflineArabicOcr
@@ -569,18 +570,24 @@ class LiveScanActivity : ComponentActivity() {
             val complete = corpus.isComplete()
             val exact = if (complete) ConservativeVerseMatcher(corpus.asMap()).match(scan.rawUnverifiedText)
                 as? RecognitionResult.VerifiedCandidate else null
-            val candidates = if (exact != null) {
-                listOf(VerseCandidates.Suggestion(exact.match.id, exact.match.canonicalArabic, 1f))
-            } else if (complete) VerseCandidates.suggest(scan.rawUnverifiedText + "\n" + scan.sparseText, corpus.asMap())
-                            .ifEmpty { listOfNotNull(VerseCandidates.suggestNoisyLine(scan.lineAlternatives, corpus.asMap())) } else emptyList()
+            val page = if (complete && exact == null)
+                QuranPageVerseMatcher.find(scan.rawUnverifiedText, corpus.asMap()) else null
+            val candidates = when {
+                exact != null -> listOf(VerseCandidates.Suggestion(exact.match.id, exact.match.canonicalArabic, 1f))
+                page != null && page.matches.isNotEmpty() -> page.matches
+                complete -> VerseCandidates.suggest(scan.rawUnverifiedText + "\n" + scan.sparseText, corpus.asMap())
+                    .ifEmpty { listOfNotNull(VerseCandidates.suggestNoisyLine(scan.lineAlternatives, corpus.asMap())) }
+                else -> emptyList()
+            }
+            val autoVerse = exact?.match?.id ?: page?.autoPlayable?.id
             runOnUiThread {
                 if (!isCurrentScan(claim, region) || isFinishing || isDestroyed) return@runOnUiThread
-                if (exact != null && hasWindowFocus()) {
+                if (autoVerse != null && hasWindowFocus()) {
                     paused.set(true)
                     togglePause.setText(R.string.live_resume_auto)
                     startActivity(Intent(this, RecitationActivity::class.java).apply {
-                        putExtra(RecitationActivity.EXTRA_SURAH, exact.match.id.surah)
-                        putExtra(RecitationActivity.EXTRA_AYAH, exact.match.id.ayah)
+                        putExtra(RecitationActivity.EXTRA_SURAH, autoVerse.surah)
+                        putExtra(RecitationActivity.EXTRA_AYAH, autoVerse.ayah)
                         putExtra(RecitationActivity.EXTRA_AUTO_PLAY, true)
                         putExtra(RecitationActivity.EXTRA_SCANNED_TEXT,
                             scan.rawUnverifiedText.take(RecitationActivity.MAX_COMPARISON_LENGTH))
@@ -588,7 +595,7 @@ class LiveScanActivity : ComponentActivity() {
                 }
                 reviewContainer.removeAllViews()
                 if (complete && candidates.isNotEmpty()) {
-                    candidates.take(3).forEach { candidate ->
+                    candidates.take(8).forEach { candidate ->
                         val btn = Button(this).apply {
                             val reference = candidateReference(candidate)
                             text = getString(R.string.scan_review_candidate, reference)

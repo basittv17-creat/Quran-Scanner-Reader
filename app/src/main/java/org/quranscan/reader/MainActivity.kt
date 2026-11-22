@@ -19,6 +19,7 @@ import org.quranscan.reader.core.GalleryImageState
 import org.quranscan.reader.core.OfflineCorpus
 import org.quranscan.reader.audio.WordHighlightText
 import org.quranscan.reader.core.VerseCandidates
+import org.quranscan.reader.core.QuranPageVerseMatcher
 import org.quranscan.reader.core.ConservativeVerseMatcher
 import org.quranscan.reader.core.RecognitionResult
 import org.quranscan.reader.core.VerseId
@@ -90,7 +91,7 @@ class MainActivity : Activity() {
         super.onStart()
         galleryStarted = true
         if (reopenGalleryOnStart) {
-            galleryUri?.let { openGalleryImage(it, gallerySelection) }
+            galleryUri?.let { openGalleryImage(it, gallerySelection, autoProcess = gallerySelection == null) }
         }
     }
 
@@ -278,7 +279,7 @@ class MainActivity : Activity() {
         }
         retainGalleryPermission(uri, data.flags)
         if (galleryStarted) {
-            openGalleryImage(uri)
+            openGalleryImage(uri, autoProcess = true)
         } else {
             galleryUri = uri
             gallerySelection = null
@@ -318,7 +319,7 @@ class MainActivity : Activity() {
         releaseGalleryPermission()
     }
 
-    private fun openGalleryImage(uri: Uri, selection: CropBounds? = null) {
+    private fun openGalleryImage(uri: Uri, selection: CropBounds? = null, autoProcess: Boolean = false) {
         screen(getString(R.string.gallery_opening), keepGallery = true)
         galleryUri = uri
         gallerySelection = selection
@@ -337,6 +338,10 @@ class MainActivity : Activity() {
                 if (bitmap == null) {
                     message(getString(R.string.gallery_open_error))
                     home()
+                } else if (autoProcess) {
+                    // Gallery uploads and screenshots scan immediately. Keep Crop & retry.
+                    galleryBitmap = bitmap
+                    startGalleryScan(uri, bitmap, CropBounds(0, 0, bitmap.width, bitmap.height), false)
                 } else previewGalleryCrop(uri, bitmap, selection)
             }
         }
@@ -391,15 +396,18 @@ class MainActivity : Activity() {
                     if (token != scanToken) return@execute
                     val db = OfflineCorpus(applicationContext)
                     val complete = db.isComplete()
-                    val match = if (complete) ConservativeVerseMatcher(db.asMap()).match(ocr.rawUnverifiedText)
-                        else null
-                    val candidates = if (match is RecognitionResult.VerifiedCandidate) {
-                        listOf(VerseCandidates.Suggestion(match.match.id, match.match.canonicalArabic, 1f))
-                    } else if (complete) {
-                        VerseCandidates.suggest(ocr.rawUnverifiedText + "\n" + ocr.sparseText, db.asMap())
+                    val exact = if (complete) ConservativeVerseMatcher(db.asMap())
+                        .match(ocr.rawUnverifiedText) as? RecognitionResult.VerifiedCandidate else null
+                    val page = if (complete && exact == null)
+                        QuranPageVerseMatcher.find(ocr.rawUnverifiedText, db.asMap()) else null
+                    val candidates = when {
+                        exact != null -> listOf(VerseCandidates.Suggestion(exact.match.id, exact.match.canonicalArabic, 1f))
+                        page != null && page.matches.isNotEmpty() -> page.matches
+                        complete -> VerseCandidates.suggest(ocr.rawUnverifiedText + "\n" + ocr.sparseText, db.asMap())
                             .ifEmpty { listOfNotNull(VerseCandidates.suggestNoisyLine(ocr.lineAlternatives, db.asMap())) }
-                    } else emptyList()
-                    Triple(ocr, candidates, (match is RecognitionResult.VerifiedCandidate) to complete)
+                        else -> emptyList()
+                    }
+                    Triple(ocr, candidates, (exact?.match?.id ?: page?.autoPlayable?.id) to complete)
                 }
             } finally {
                 if (input !== bitmap) input.recycle()
@@ -411,10 +419,9 @@ class MainActivity : Activity() {
                 root.removeView(progress)
                 root.removeView(scanning)
                 response.onSuccess { (ocr, candidates, recognition) ->
-                    val (exactMatch, complete) = recognition
-                    if (exactMatch && hasWindowFocus()) {
-                        val id = candidates.single().id
-                        recitation(id.surah, id.ayah, ocr.rawUnverifiedText, autoPlay = true)
+                    val (autoVerse, complete) = recognition
+                    if (autoVerse != null && hasWindowFocus()) {
+                        recitation(autoVerse.surah, autoVerse.ayah, ocr.rawUnverifiedText, autoPlay = true)
                     }
                     val scannedText = ocr.rawUnverifiedText.ifBlank { ocr.sparseText }
                     if (scannedText.isBlank()) {
