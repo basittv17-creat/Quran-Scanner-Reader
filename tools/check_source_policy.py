@@ -76,17 +76,18 @@ def main():
         package_tasks = re.findall(
             r'\b(?:assemble\w*|bundle(?:Debug|Release)|package(?:Debug|Release))\b', text
         )
+        assert not package_tasks, f'Packaging is forbidden: {path}'
         if path.name == 'source-validation.yml':
-            assert package_tasks == ['assembleDebug'] and ':app:assembleDebug' in text, path
-            assert ':app:testDebugUnitTest' in text
-            assert ':app:lintDebug' in text
-        else:
-            assert not package_tasks, path
+            assert ':app:compileDebugKotlin' in text, path
+            assert ':app:processDebugResources' in text, path
+            assert ':app:testDebugUnitTest' in text, path
+            assert ':app:lintDebug' in text, path
+            assert 'No APK/AAB artifacts found.' in text, path
     tracked_packages = subprocess.check_output(
         ['git', 'ls-files', '-z', '--', '*.apk', '*.aab'], cwd=root
     )
-    assert not tracked_packages, 'Android packages must be distributed as CI artifacts'
-    print('PASS: offline manifest, backup exclusions, pinned dependencies and Actions, and APK-only CI')
+    assert not tracked_packages, 'No Android packages may be tracked'
+    print('PASS: offline manifest, backup exclusions, pinned dependencies and Actions, and source-only CI (NO APK/AAB)')
 
 
 if __name__ == '__main__':

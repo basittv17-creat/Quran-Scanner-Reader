@@ -1,4 +1,4 @@
-name: Android checks and APK
+name: Android source compile and checks (NO APK / AAB)
 
 on:
   push:
@@ -45,26 +45,10 @@ jobs:
       - name: Report unit tests and lint findings
         if: always()
         run: python3 tools/report_ci_results.py
-      - name: Build a single Android debug APK
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
-      - name: Verify APK output and signature
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+      - name: Prove no APK or AAB was generated
+        if: always()
         run: |
-          mapfile -t packages < <(find app/build/outputs -type f \( -name '*.apk' -o -name '*.aab' \))
-          apk=app/build/outputs/apk/debug/app-debug.apk
-          test "${#packages[@]}" -eq 1
-          test "${packages[0]}" = "$apk"
-          test -s "$apk"
-          sdk="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          apksigner="$(find "$sdk/build-tools" -mindepth 2 -maxdepth 2 -name apksigner | sort -V | tail -n 1)"
-          test -x "$apksigner"
-          "$apksigner" verify "$apk"
-      - name: Upload Quran Scanner Reader APK
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: quran-scanner-reader-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          compression-level: 0
+          if find . -type f \( -name '*.apk' -o -name '*.aab' \) | grep .; then
+            echo 'Unexpected Android package generated'; exit 1
+          fi
+          echo 'No APK/AAB artifacts found.'
